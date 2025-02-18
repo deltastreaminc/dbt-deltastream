@@ -1,0 +1,91 @@
+[project]
+name = "dbt-deltastream"
+version = "1.9.0"
+description = "The DeltaStream adapter plugin for dbt"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [
+    {name = "DeltaStream Inc.", email = "support@deltastream.com"}
+]
+license = "APACHE-2.0"
+license-files = ["LICENSE"]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "deltastream-connector >= 0.1.2",
+    "dbt-core>=1.9.2",
+    "dbt-common>=1.10,<2.0",
+    "dbt-adapters>=1.13.2",
+    "agate",
+]
+
+[project.urls]
+Homepage = "https://github.com/deltastreaminc/dbt-deltastream"
+Issues = "https://github.com/deltastreaminc/dbt-deltastream/issues"
+
+[dependency-groups]
+dev = [
+  "dbt-tests-adapter @ git+https://github.com/dbt-labs/dbt-adapters.git#subdirectory=dbt-tests-adapter",
+  "pytest>=8.3.4",
+  "pytest-cov>=6.0.0",
+  "tox>=3.9.0",
+  "flake8>=4.0.0",
+  "types-python-dateutil>=2.8.19.14",
+  "mypy>=1.15.0",
+  "pytest-asyncio>=0.25.3",
+  "hatch>=1.14.0",
+]
+lint = [
+    "ruff"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/dbt/adapters/deltastream/__version__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dbt"]
+
+[tool.hatch.build.targets.sdist]
+only-include = ["src"]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html"
+]
+pythonpath = [
+    "."
+]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+filterwarnings = [
+    "ignore::DeprecationWarning:websockets.legacy.*:",
+    "ignore::DeprecationWarning:dbt_common.events.*:",
+    # We can't fix the underlying library warnings, so we'll ignore them for now
+    "ignore:datetime.datetime.utcnow.*:DeprecationWarning"
+]
+
+[tool.pylint]
+max-line-length = 88
+disable = ["C0111", "R0903"]
+extension-pkg-whitelist = "pydantic"
+
+[tool.ruff]
+line-length = 88
+indent-width = 4

@@ -1,0 +1,13 @@
+default:
+  outputs:
+    dev:
+      type: deltastream
+      token: your-token-here
+
+    prod:
+      type: deltastream
+      token: your-token-here
+      database: prod
+      schema: public
+
+  target: dev
