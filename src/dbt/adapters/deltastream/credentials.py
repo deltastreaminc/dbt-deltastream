@@ -19,7 +19,7 @@ class DeltastreamCredentials(Credentials):
     session_id: Optional[str] = None
     url: str = "https://api.deltastream.io/v2"
 
-    organization_id: Optional[str] = None
+    organization_id: str = ""
     role: Optional[str] = None
     store: Optional[str] = None
     database: str = ""
@@ -56,6 +56,8 @@ class DeltastreamCredentials(Credentials):
             raise DbtRuntimeError("Must specify database")
         if not self.schema or self.schema == "":
             raise DbtRuntimeError("Must specify schema")
+        if self.organization_id == "":
+            raise DbtRuntimeError("Must specify organization ID")
 
 
 def create_deltastream_client(credentials: DeltastreamCredentials) -> APIConnection:

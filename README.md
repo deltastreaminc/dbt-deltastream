@@ -5,13 +5,14 @@ A [dbt](https://www.getdbt.com/) adapter for [DeltaStream](https://deltastream.i
 ## Features
 
 - Seamless integration with DeltaStream's streaming capabilities
-- Support for various materialization types:
+- Support for DeltaStream core concepts through dbt materialization types:
   - `table`: Traditional batch table materialization
   - `materialized_view`: Continuously updated view
   - `stream`: Pure streaming transformation
   - `changelog`: Change data capture (CDC) stream
   - `store`: External system connection (Kafka, PostgreSQL, etc.)
   - `entity`: Entity definition in a store
+  - `database`: Database definition
 
 ## Installation
 
@@ -38,12 +39,12 @@ your_profile_name:
       token: your-api-token            # Authentication token
       database: your-database          # Target database name
       schema: your-schema              # Target schema name
+      organization_id: your-org-id     # Organization identifier
       
       # Optional Parameters
       url: https://api.deltastream.io/v2  # DeltaStream API URL
       timezone: UTC                       # Timezone for operations
-      session_id: your-session-id         # Custom session identifier
-      organization_id: your-org-id        # Organization identifier
+      session_id: your-session-id         # Custom session identifier for debugging purpose
       role: your-role                     # User role
       store: your-store                   # Target store name
 ```
@@ -54,12 +55,13 @@ The following parameters are supported in the profile configuration:
 - `token`: Authentication token for DeltaStream API
 - `database`: Target default database name
 - `schema`: Target default schema name
+- `organization_id`: Organization identifier
 
 ### Optional Parameters
 - `url`: DeltaStream API URL (default: https://api.deltastream.io/v2)
 - `timezone`: Timezone for operations (default: UTC)
-- `session_id`: Custom session identifier
-- `organization_id`: Organization identifier
+- `session_id`: Custom session identifier for debugging
+
 - `role`: User role
 - `store`: target default store name
 

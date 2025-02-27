@@ -39,6 +39,11 @@ def test_missing_schema():
     with pytest.raises(DbtRuntimeError, match="Must specify schema"):
         DeltastreamCredentials(**data)
 
+def test_missing_organization_id():
+    data = valid_credentials_data()
+    data["organization_id"] = ""
+    with pytest.raises(DbtRuntimeError, match="Must specify organization ID"):
+        DeltastreamCredentials(**data)
 
 def test_valid_credentials_properties():
     data = valid_credentials_data()
