@@ -220,6 +220,9 @@ class DeltastreamAdapter(BaseAdapter):
         except Exception as e:
             logger.error(f"get_columns_in_relation error: {str(e)}")
             return []
+        
+    def debug_query(self) -> None:
+        self.execute("CAN I CREATE_QUERY;")
 
     def expand_column_types(
         self,
