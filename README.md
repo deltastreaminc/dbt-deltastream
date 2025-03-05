@@ -65,6 +65,20 @@ The following parameters are supported in the profile configuration:
 - `role`: User role
 - `store`: target default store name
 
+### Best practices
+
+When configuring your project for production, it is recommended to use environment variables to store sensitive information such as the `token`:
+
+```yaml
+your_profile_name:
+  target: prod
+  outputs:
+    prod:
+      type: deltastream
+      token: "{{ env_var('DELTASTREAM_API_TOKEN') }}"
+      ...
+```
+
 ## Materializations
 
 DeltaStream supports two types of model definitions:
