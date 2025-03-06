@@ -1,0 +1,26 @@
+fixed:
+  type: deltastream
+  timezone: UTC
+
+prompts:
+  token:
+    hint: 'Deltastream API token'
+    hide_input: true
+  url:
+    hint: 'Control plane URL for Deltastream'
+    default: "https://api.deltastream.io/v2"
+  database:
+    hint: 'Database name'
+    default: "dev"
+  schema:
+    hint: 'Schema name'
+    default: "public"
+  organization_id:
+    hint: 'Organization ID'
+  timezone:
+    hint: 'Timezone'
+    default: "UTC"
+  threads:
+    hint: '[Optional] 1 or more'
+    type: 'int'
+    default: 1

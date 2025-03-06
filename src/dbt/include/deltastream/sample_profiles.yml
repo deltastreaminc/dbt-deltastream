@@ -1,0 +1,17 @@
+default:
+  outputs:
+    dev:
+      type: deltastream
+      token: your-token-here
+      database: dev
+      schema: public
+      organization_id: your-organization-id-here
+
+    prod:
+      type: deltastream
+      token: your-token-here
+      database: prod
+      schema: public
+      organization_id: your-organization-id-here
+
+  target: dev
