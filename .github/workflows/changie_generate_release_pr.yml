@@ -29,6 +29,16 @@ jobs:
         version: latest
         args: latest
 
+    - name: Update version in pyproject.toml
+      run: |
+        LATEST_VERSION=${{ steps.latest.outputs.output }}
+        LATEST_VERSION_STRIPPED=${LATEST_VERSION#v}
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+          sed -i '' "s/version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${LATEST_VERSION_STRIPPED}\"/" pyproject.toml
+        else
+          sed -i "s/version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${LATEST_VERSION_STRIPPED}\"/" pyproject.toml
+        fi
+
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v4
       with:

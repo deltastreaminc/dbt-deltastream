@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "deltastream-connector >= 0.1.2",
+    "deltastream-connector >= 0.1.3",
     "dbt-core>=1.9.2",
     "dbt-common>=1.10,<2.0",
     "dbt-adapters>=1.13.2",
