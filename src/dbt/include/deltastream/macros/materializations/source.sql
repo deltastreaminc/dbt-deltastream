@@ -29,7 +29,6 @@
   {%- endset %}
 
   {{ log("Creating " ~ materialized ~ " source " ~ node.identifier ~ "...", info = True) }}
-  {{ log("Running following query: " ~ source_sql) }}
   {% set source_creation_results = run_query(source_sql) %}
   {{ log("Created " ~ materialized ~ " source " ~ node.identifier ~ "!", info = True) }}
 {% endmacro %}

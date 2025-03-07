@@ -265,8 +265,11 @@ class DeltastreamAdapter(BaseAdapter):
                 )
             else:
                 return None
-        except SQLError:
-            return None
+        except SQLError as e:
+            # Handle expected SQL states that indicate relation does not exist
+            if e.code in [SqlState.SQL_STATE_INVALID_RELATION, SqlState.SQL_STATE_INVALID_SCHEMA]:
+                return None
+            raise
 
     def create_schema(self, relation: DeltastreamRelation) -> None:
         """Create a schema in DeltaStream"""
