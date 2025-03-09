@@ -1,0 +1,6 @@
+kind: Fixes
+body: Fix store creation that was failing when the materialization attempts to check for pre existing store but it is not existing.
+time: 2025-03-07T21:52:53.380129+01:00
+custom:
+    Author: Kayrnt
+    Issue: ""
