@@ -8,6 +8,7 @@ from dbt.adapters.contracts.connection import (
 from dbt.adapters.exceptions.connection import FailedToConnectError
 
 from deltastream.api.conn import APIConnection
+from deltastream.api.error import SQLError, SqlState
 
 from .credentials import create_deltastream_client
 from contextlib import contextmanager
@@ -20,6 +21,13 @@ logger = AdapterLogger("deltastream")
 
 class DeltastreamConnectionManager(BaseConnectionManager):
     TYPE = "deltastream"
+
+    # Dict mapping SQL states to whether they should be treated as expected errors
+    EXPECTED_SQL_STATES = {
+        SqlState.SQL_STATE_INVALID_RELATION: True,  # Invalid relation
+        SqlState.SQL_STATE_DUPLICATE_SCHEMA: True,  # Schema already exists
+        SqlState.SQL_STATE_DUPLICATE_RELATION: True,  # Table/relation already exists
+    }
 
     @classmethod
     def open(cls, connection):
@@ -109,6 +117,19 @@ class DeltastreamConnectionManager(BaseConnectionManager):
     def exception_handler(self, sql):
         try:
             yield
+
+        except SQLError as e:
+            logger.debug("SQL Error while running:\n{}".format(sql))
+            logger.debug(f"SQL State: {e.code}, Message: {str(e)}")
+            
+            # Check if this is an expected error based on SQL state
+            is_expected = self.EXPECTED_SQL_STATES.get(e.code, False)
+            if is_expected:
+                # Re-raise expected errors to be handled by the adapter
+                raise
+            else:
+                # Wrap unexpected SQL errors
+                raise DbtRuntimeError(f"SQL Error ({e.code}): {str(e)}")
 
         except Exception as e:
             logger.debug("Unhandled error while running:\n{}".format(sql))

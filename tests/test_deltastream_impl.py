@@ -140,9 +140,35 @@ def test_get_relation_query_success(adapter, dummy_relation):
 
 def test_get_relation_query_fail(adapter):
     adapter._schema_is_cached = lambda db, sch: False
-    adapter.connections.query.side_effect = SQLError("not found", "XX000", "dummy")
+    error = SQLError("not found", "XX000", "dummy")
+    adapter.connections.query.side_effect = error
+    with pytest.raises(SQLError):
+        adapter.get_relation("dummy_db", "dummy_schema", "dummy_table")
+
+
+def test_get_relation_invalid_relation(adapter):
+    adapter._schema_is_cached = lambda db, sch: False
+    error = SQLError("relation not found", SqlState.SQL_STATE_INVALID_RELATION, "dummy")
+    adapter.connections.query.side_effect = error
     result = adapter.get_relation("dummy_db", "dummy_schema", "dummy_table")
     assert result is None
+
+
+def test_get_relation_invalid_schema(adapter):
+    adapter._schema_is_cached = lambda db, sch: False
+    error = SQLError("schema not found", SqlState.SQL_STATE_INVALID_SCHEMA, "dummy")
+    adapter.connections.query.side_effect = error
+    result = adapter.get_relation("dummy_db", "dummy_schema", "dummy_table")
+    assert result is None
+
+
+def test_get_relation_other_sql_error(adapter):
+    adapter._schema_is_cached = lambda db, sch: False
+    error = SQLError("some other error", "XX000", "dummy")
+    adapter.connections.query.side_effect = error
+    with pytest.raises(SQLError) as exc:
+        adapter.get_relation("dummy_db", "dummy_schema", "dummy_table")
+    assert str(exc.value) == "some other error"
 
 
 def test_create_schema_success(adapter, dummy_relation):

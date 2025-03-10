@@ -41,7 +41,7 @@
 {%- endmacro %}
 
 {% macro deltastream__create_store(relation, parameters) -%}
-  create store {{ relation }}
+  create store {{ relation.identifier }}
   {{ deltastream__with_parameters(parameters) }}
   ;
 {%- endmacro %}
@@ -56,7 +56,13 @@
   {% if parameters.items() | length > 0 %}
     with (
     {%- for parameter, value in parameters.items() %}
+      {%- if parameter == 'type' or parameter == 'kafka.sasl.hash_function' %}
+      '{{ parameter }}' = {{ value }}{% if not loop.last %},{% endif %}
+      {%- elif parameter == 'access_region' %}
+      '{{ parameter }}' = "{{ value }}"{% if not loop.last %},{% endif %}
+      {%- else %}
       '{{ parameter }}' = '{{ value }}'{% if not loop.last %},{% endif %}
+      {%- endif %}
     {%- endfor %}
     )
   {% endif %}
@@ -87,7 +93,7 @@
 {% macro deltastream__drop_relation(relation) -%}
   {% call statement('drop_relation') -%}
     {% if relation.type == 'store' %}
-      drop store {{ relation }}
+      drop store {{ relation.identifier }}
     {% elif relation.type == 'materialized view' %}
       drop materialized view {{ relation }}
     {% elif relation.type == 'stream' %}
