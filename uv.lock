@@ -1,5 +1,4 @@
 version = 1
-revision = 1
 requires-python = ">=3.11"
 
 [[package]]
@@ -403,7 +402,7 @@ requires-dist = [
     { name = "dbt-adapters", specifier = ">=1.13.2" },
     { name = "dbt-common", specifier = ">=1.10,<2.0" },
     { name = "dbt-core", specifier = ">=1.9.2" },
-    { name = "deltastream-connector", specifier = ">=0.1.2" },
+    { name = "deltastream-connector", specifier = ">=0.1.3" },
 ]
 
 [package.metadata.requires-dev]
@@ -488,7 +487,7 @@ wheels = [
 
 [[package]]
 name = "deltastream-connector"
-version = "0.1.2"
+version = "0.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pydantic" },
@@ -497,9 +496,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/c7/38/f017e334fa1c8ca31bc5a8ee9c800faa839e08a4c42beadd902acf817305/deltastream_connector-0.1.2.tar.gz", hash = "sha256:abfc314c7f14d5d3a9b7fd68f871263f657fdcd007f4b06e2595ebff396891e8", size = 57107 }
+sdist = { url = "https://files.pythonhosted.org/packages/9b/82/4a39fa412319779106db46ddf26e344747a0d3321a50a9465ad0a0ea5ff2/deltastream_connector-0.1.3.tar.gz", hash = "sha256:80e465e45dae86f5c88feeff4d2efb16872ca7e45eacebb2d6d736eaac626834", size = 57544 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/97/1c/ab26792a4198b0b653c0696322029a8a10f9568d93dce728730f3dcd177c/deltastream_connector-0.1.2-py3-none-any.whl", hash = "sha256:fcdb8f3cfb1510c8f83922e240925cb22ff17805c1fcc9068c38d6991ae5d012", size = 94808 },
+    { url = "https://files.pythonhosted.org/packages/d6/c9/e9330cf63a77ec07981602932081403ca51488625ee4d47f9e2d6897bb10/deltastream_connector-0.1.3-py3-none-any.whl", hash = "sha256:6d35cea2699248af572d3d651ee548e8b504f47dc05b7dec143beb540684339a", size = 95252 },
 ]
 
 [[package]]
