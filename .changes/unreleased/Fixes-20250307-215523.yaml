@@ -1,6 +1,0 @@
-kind: Fixes
-body: Properly output parameters that should be unquoted
-time: 2025-03-07T21:55:23.275857+01:00
-custom:
-    Author: Kayrnt
-    Issue: ""
