@@ -60,6 +60,8 @@
       '{{ parameter }}' = {{ value }}{% if not loop.last %},{% endif %}
       {%- elif parameter == 'access_region' %}
       '{{ parameter }}' = "{{ value }}"{% if not loop.last %},{% endif %}
+      {%- elif value is number %}
+      '{{ parameter }}' = {{ value }}{% if not loop.last %},{% endif %}
       {%- else %}
       '{{ parameter }}' = '{{ value }}'{% if not loop.last %},{% endif %}
       {%- endif %}
