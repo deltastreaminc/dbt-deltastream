@@ -1,6 +1,0 @@
-kind: Fixes
-body: Ensure that with parameters that are parsed as integer are passed without quotes in the SQL
-time: 2025-03-16T17:03:45.557106+01:00
-custom:
-    Author: Kayrnt
-    Issue: ""
