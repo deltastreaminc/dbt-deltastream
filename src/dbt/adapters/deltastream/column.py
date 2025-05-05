@@ -28,7 +28,6 @@ class DeltastreamColumn(Column):
         self.fields = fields or []
         self.mode = mode
 
-
     @classmethod
     def _flatten_recursive(
         cls: Type[Self], col: Self, prefix: Optional[List[str]] = None

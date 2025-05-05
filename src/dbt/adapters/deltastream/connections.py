@@ -121,7 +121,7 @@ class DeltastreamConnectionManager(BaseConnectionManager):
         except SQLError as e:
             logger.debug("SQL Error while running:\n{}".format(sql))
             logger.debug(f"SQL State: {e.code}, Message: {str(e)}")
-            
+
             # Check if this is an expected error based on SQL state
             is_expected = self.EXPECTED_SQL_STATES.get(e.code, False)
             if is_expected:
