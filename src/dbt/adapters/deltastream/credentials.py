@@ -22,6 +22,7 @@ class DeltastreamCredentials(Credentials):
     organization_id: str = ""
     role: Optional[str] = None
     store: Optional[str] = None
+    compute_pool: Optional[str] = None
     database: str = ""
     schema: str = ""
 
@@ -38,6 +39,7 @@ class DeltastreamCredentials(Credentials):
 
     def _connection_keys(self):
         return (
+            "compute_pool",
             "database",
             "organization_id",
             "role",
@@ -76,6 +78,7 @@ def create_deltastream_client(credentials: DeltastreamCredentials) -> APIConnect
             credentials.database,
             credentials.schema,
             credentials.store,
+            credentials.compute_pool
         )
     except AuthenticationError:
         logger.info("Unable to connect to Deltastream, authentication failed")

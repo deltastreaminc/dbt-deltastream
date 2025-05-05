@@ -46,8 +46,32 @@
   ;
 {%- endmacro %}
 
+{% macro deltastream__update_store(relation, parameters) -%}
+  update store {{ relation.identifier }}
+  {{ deltastream__with_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__create_compute_pool(relation, parameters) -%}
+  create compute_pool {{ relation.identifier }}
+  {{ deltastream__with_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__update_compute_pool(relation, parameters) -%}
+  update compute_pool {{ relation.identifier }}
+  {{ deltastream__with_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
 {% macro deltastream__create_entity(relation, parameters, store) -%}
   create entity {{ relation }}{% if store %} in store {{ store }}{% endif %}
+  {{ deltastream__with_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__update_entity(relation, parameters, store) -%}
+  update entity {{ relation }}{% if store %} in store {{ store }}{% endif %}
   {{ deltastream__with_parameters(parameters) }}
   ;
 {%- endmacro %}
