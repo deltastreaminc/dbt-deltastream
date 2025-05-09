@@ -156,9 +156,9 @@ class DeltastreamAdapter(BaseAdapter):
             agate.Number(),  # column_index
             agate.Text(cast_nulls=False),  # column_type
             agate.Text(cast_nulls=False),  # column_comment
-            existing_types[5]
-            if len(existing_types) > 5
-            else agate.Text(),  # table_owner
+            (
+                existing_types[5] if len(existing_types) > 5 else agate.Text()
+            ),  # table_owner
         ]
         return agate.Table(new_rows, new_columns, column_types=new_types)
 
@@ -220,7 +220,7 @@ class DeltastreamAdapter(BaseAdapter):
         except Exception as e:
             logger.error(f"get_columns_in_relation error: {str(e)}")
             return []
-        
+
     def debug_query(self) -> None:
         self.execute("CAN I CREATE_QUERY;")
 
@@ -267,7 +267,84 @@ class DeltastreamAdapter(BaseAdapter):
                 return None
         except SQLError as e:
             # Handle expected SQL states that indicate relation does not exist
-            if e.code in [SqlState.SQL_STATE_INVALID_RELATION, SqlState.SQL_STATE_INVALID_SCHEMA]:
+            if e.code in [
+                SqlState.SQL_STATE_INVALID_RELATION,
+                SqlState.SQL_STATE_INVALID_SCHEMA,
+            ]:
+                return None
+            raise
+
+    class DeltastreamResource:
+        """A class representing a Deltastream resource"""
+
+        identifier: str
+        resource_type: str
+        parameters: Dict[str, Any]
+
+        def __init__(
+            self, identifier: str, resource_type: str, parameters: Dict[str, Any]
+        ):
+            self.identifier = identifier
+            self.resource_type = resource_type
+            self.parameters = parameters
+
+    def create_delta_stream_resource(
+        self, resource_type: str, identifier: str, parameters: Dict[str, Any]
+    ) -> None:
+        """Create a DeltaStream resource (e.g., compute pool, store, entity)"""
+        try:
+            if resource_type in ["compute_pool", "entity", "store"]:
+                self.DeltastreamResource(identifier, resource_type, parameters)
+            else:
+                raise dbt_common.exceptions.DbtRuntimeError(
+                    f"Unsupported resource type: {resource_type}"
+                )
+        except SQLError as e:
+            raise dbt_common.exceptions.DbtDatabaseError(
+                f"Error creating {resource_type} {identifier}: {str(e)}"
+            )
+
+    def get_compute_pool(self, identifier: str) -> Optional["DeltastreamResource"]:
+        """Get a compute pool configuration if it exists"""
+        try:
+            (_, table) = self.connections.query(
+                'DESCRIBE COMPUTE POOL "{}";'.format(identifier)
+            )
+            if table and len(table) > 0:
+                return self.DeltastreamResource(identifier, "compute_pool", {})
+            return None
+        except SQLError as e:
+            if e.code == SqlState.SQL_STATE_INVALID_RELATION:
+                return None
+            raise
+
+    def get_store(self, identifier: str) -> Optional["DeltastreamResource"]:
+        """Get a store configuration if it exists"""
+        try:
+            (_, table) = self.connections.query(f"DESCRIBE STORE {identifier};")
+            if table and len(table) > 0:
+                return self.DeltastreamResource(identifier, "store", {})
+            return None
+        except SQLError as e:
+            if e.code == SqlState.SQL_STATE_INVALID_RELATION:
+                return None
+            raise
+
+    def get_entity(
+        self, identifier: str, store: Optional[str] = None
+    ) -> Optional["DeltastreamResource"]:
+        """Get an entity configuration if it exists"""
+        try:
+            if store:
+                sql = f'DESCRIBE ENTITY "{identifier}" IN STORE "{store}";'
+            else:
+                sql = f'DESCRIBE ENTITY "{identifier}";'
+            (_, table) = self.connections.query(sql)
+            if table and len(table) > 0:
+                return self.DeltastreamResource(identifier, "entity", {})
+            return None
+        except SQLError as e:
+            if e.code == SqlState.SQL_STATE_INVALID_RELATION:
                 return None
             raise
 
