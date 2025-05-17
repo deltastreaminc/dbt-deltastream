@@ -3,25 +3,20 @@ from unittest import mock
 from decimal import Decimal
 
 import agate
-import os
 
 import unittest
 from unittest.mock import patch, MagicMock
 
-import dbt_common.exceptions
 from dbt.adapters.deltastream.impl import DeltastreamAdapter
 from dbt.adapters.deltastream.relation import (
     DeltastreamRelation,
 )
-from dbt.context.providers import generate_runtime_macro_context
-
 from tests.utils import (
     config_from_parts_or_dicts,
     inject_adapter,
     TestAdapterConversions,
     load_internal_manifest_macros,
     mock_connection,
-    get_project_path,
 )
 
 import dbt_common.exceptions
@@ -83,10 +78,12 @@ class BaseTestDeltastreamAdapter(unittest.TestCase):
             all_projects = self.all_projects
             return ManifestStateCheck(
                 vars_hash=FileHash.from_contents("vars"),
-                project_hashes={name: FileHash.from_contents(name) for name in all_projects},
+                project_hashes={
+                    name: FileHash.from_contents(name) for name in all_projects
+                },
                 profile_hash=FileHash.from_contents("profile"),
             )
-        
+
         self.load_state_check = mock.patch(
             "dbt.parser.manifest.ManifestLoader.build_manifest_state_check"
         )
@@ -169,7 +166,6 @@ class TestDeltastreamRelation(unittest.TestCase):
 
 class TestDeltastreamAdapter(unittest.TestCase):
     def setUp(self):
-        project_dir = os.path.dirname(get_project_path())
         self.mock_conn = MagicMock()
         self.mock_cursor = MagicMock()
         self.mock_conn.cursor.return_value = self.mock_cursor

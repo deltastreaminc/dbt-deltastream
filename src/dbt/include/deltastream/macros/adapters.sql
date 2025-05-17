@@ -40,14 +40,38 @@
   ;
 {%- endmacro %}
 
-{% macro deltastream__create_store(relation, parameters) -%}
-  create store {{ relation.identifier }}
+{% macro deltastream__create_store(resource, parameters) -%}
+  create store {{ resource.identifier }}
   {{ deltastream__with_parameters(parameters) }}
   ;
 {%- endmacro %}
 
-{% macro deltastream__create_entity(relation, parameters, store) -%}
-  create entity {{ relation }}{% if store %} in store {{ store }}{% endif %}
+{% macro deltastream__update_store(resource, parameters) -%}
+  update store {{ resource.identifier }}
+  {{ deltastream__with_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__create_compute_pool(resource, parameters) -%}
+  create compute_pool {{ resource.identifier }}
+  {{ deltastream__with_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__update_compute_pool(resource, parameters) -%}
+  update compute_pool {{ resource.identifier }}
+  {{ deltastream__with_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__create_entity(resource, parameters, store) -%}
+  create entity {{ resource.identifier }}{% if store %} in store {{ store }}{% endif %}
+  {{ deltastream__with_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__update_entity(resource, parameters, store) -%}
+  update entity {{ resource.identifier }}{% if store %} in store {{ store }}{% endif %}
   {{ deltastream__with_parameters(parameters) }}
   ;
 {%- endmacro %}

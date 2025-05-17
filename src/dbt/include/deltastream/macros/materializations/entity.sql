@@ -2,25 +2,21 @@
   {%- set identifier = model['alias'] -%}
   {%- set parameters = config.get('parameters', {}) %}
   {%- set store = config.get('store', none) %}
-  {%- set old_relation = adapter.get_relation(identifier=identifier,
-                                              schema=schema,
-                                              database=database) -%}
-  {%- set target_relation = api.Relation.create(identifier=identifier,
-                                                schema=schema,
-                                                database=database,
-                                                type='entity') -%}
-
-  {% if old_relation %}
-    {{ adapter.drop_relation(old_relation) }}
-  {% endif %}
+  {%- set resource = adapter.create_deltastream_resource('entity', identifier, parameters) -%}
 
   {{ run_hooks(pre_hooks) }}
 
   {% call statement('main') -%}
-    {{ deltastream__create_entity(target_relation, parameters, store) }}
+    {% if adapter.get_entity(identifier, store) is not none %}
+      {{ deltastream__update_entity(resource, parameters, store) }}
+      {{ log('Updated entity: ' ~ identifier) }}
+    {% else %}
+      {{ deltastream__create_entity(resource, parameters, store) }}
+      {{ log('Created entity: ' ~ identifier) }}
+    {% endif %}
   {%- endcall %}
 
   {{ run_hooks(post_hooks) }}
 
-  {{ return({'relations': [target_relation]}) }}
+  {{ return({'resources': [resource]}) }}
 {% endmaterialization %}
