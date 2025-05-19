@@ -1,0 +1,32 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Bronze layer data copied from Kafka"
+    schema: bronze 
+    tables:
+      - name: pageviews
+        description: "Pageviews data"
+        columns:
+          - name: viewtime
+            type: timestamp  
+          - name: userid
+            type: string
+          - name: pageid
+            type: string
+            
+      - name: users_log
+        description: "Users log data"
+        columns:
+          - name: registertime
+            type: timestamp 
+          - name: userid
+            type: string
+          - name: regionid
+            type: string
+          - name: gender
+            type: string
+          - name: interests
+            type: array<string>
+          - name: contactinfo
+            type: "struct<phone:string, city:string, state:string, zipcode:string>"
