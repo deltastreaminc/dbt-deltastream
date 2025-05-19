@@ -1,0 +1,29 @@
+dbt_deltastream_example:
+  outputs:
+    dev:
+      type: snowflake
+      account: your-account.snowflakecomputing.com
+      user: your_user
+      password: your_password
+      role: TRANSFORMER
+      database: DEV
+      warehouse: TRANSFORMING_WH
+      schema: analytics
+      threads: 4
+      client_session_keep_alive: False
+      query_tag: dbt
+
+    prod:
+      type: snowflake
+      account: your-account.snowflakecomputing.com
+      user: your_user
+      password: your_password
+      role: TRANSFORMER
+      database: PROD
+      warehouse: TRANSFORMING_WH
+      schema: analytics
+      threads: 8
+      client_session_keep_alive: False
+      query_tag: dbt
+
+  target: dev

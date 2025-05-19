@@ -1,0 +1,32 @@
+version: 2
+
+sources:
+  - name: bronze
+    description: "Data comes from kafka"
+    schema: bronze 
+    tables:
+      - name: pageviews
+        description: "Pageviews data"
+        columns:
+          - name: viewtime
+            type: timestamp  
+          - name: userid
+            type: varchar
+          - name: pageid
+            type: varchar
+            
+      - name: users_log
+        description: "Users log data"
+        columns:
+          - name: registertime
+            type: timestamp 
+          - name: userid
+            type: varchar
+          - name: regionid
+            type: varchar
+          - name: gender
+            type: varchar
+          - name: interests
+            type: array 
+          - name: contactinfo
+            type: object
