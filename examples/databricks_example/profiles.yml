@@ -1,21 +1,19 @@
 dbt_deltastream_example:
   outputs:
     dev:
-      type: databricks
-      host: your-workspace.cloud.databricks.com
-      http_path: /sql/protocolv1/o/1234567890/0123-456789-abcdefgh
-      token: your_personal_access_token
-      catalog: hive_metastore
-      schema: analytics
-      threads: 4
+      type: deltastream
+      token: your-token-here
+      database: dev
+      schema: public
+      organization_id: your-organization-id-here
 
     prod:
-      type: databricks
-      host: your-workspace.cloud.databricks.com
-      http_path: /sql/protocolv1/o/1234567890/0123-456789-abcdefgh
-      token: your_personal_access_token
-      catalog: hive_metastore
-      schema: analytics
-      threads: 8
+      type: deltastream
+      token: your-token-here
+      database: prod
+      schema: public
+      organization_id: your-organization-id-here
+      #role: your-role-here # Optional
+      #store: your-store-here # Optional
 
   target: dev
