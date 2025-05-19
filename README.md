@@ -47,6 +47,7 @@ your_profile_name:
       session_id: your-session-id         # Custom session identifier for debugging purpose
       role: your-role                     # User role
       store: your-store                   # Target store name
+      compute_pool: your-compute-pool     # Compute pool name
 ```
 
 The following parameters are supported in the profile configuration:
@@ -61,6 +62,7 @@ The following parameters are supported in the profile configuration:
 - `url`: DeltaStream API URL (default: https://api.deltastream.io/v2)
 - `timezone`: Timezone for operations (default: UTC)
 - `session_id`: Custom session identifier for debugging
+- `compute_pool`: Compute pool name to be used if any else use the default compute pool (for models that require one)
 
 - `role`: User role
 - `store`: target default store name
