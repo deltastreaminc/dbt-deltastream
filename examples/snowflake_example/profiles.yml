@@ -1,29 +1,19 @@
 dbt_deltastream_example:
   outputs:
     dev:
-      type: snowflake
-      account: your-account.snowflakecomputing.com
-      user: your_user
-      password: your_password
-      role: TRANSFORMER
-      database: DEV
-      warehouse: TRANSFORMING_WH
-      schema: analytics
-      threads: 4
-      client_session_keep_alive: False
-      query_tag: dbt
+      type: deltastream
+      token: your-token-here
+      database: dev
+      schema: public
+      organization_id: your-organization-id-here
 
     prod:
-      type: snowflake
-      account: your-account.snowflakecomputing.com
-      user: your_user
-      password: your_password
-      role: TRANSFORMER
-      database: PROD
-      warehouse: TRANSFORMING_WH
-      schema: analytics
-      threads: 8
-      client_session_keep_alive: False
-      query_tag: dbt
+      type: deltastream
+      token: your-token-here
+      database: prod
+      schema: public
+      organization_id: your-organization-id-here
+      #role: your-role-here # Optional
+      #store: your-store-here # Optional
 
   target: dev
