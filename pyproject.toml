@@ -1,6 +1,6 @@
 [project]
 name = "dbt-deltastream"
-version = "1.9.2"
+version = "1.10.0"
 description = "The DeltaStream adapter plugin for dbt"
 readme = "README.md"
 requires-python = ">=3.11"
