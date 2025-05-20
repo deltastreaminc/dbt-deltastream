@@ -22,6 +22,7 @@ class DeltastreamCredentials(Credentials):
     organization_id: str = ""
     role: Optional[str] = None
     store: Optional[str] = None
+    compute_pool: Optional[str] = None
     database: str = ""
     schema: str = ""
 
@@ -38,6 +39,7 @@ class DeltastreamCredentials(Credentials):
 
     def _connection_keys(self):
         return (
+            "compute_pool",
             "database",
             "organization_id",
             "role",
@@ -67,15 +69,16 @@ def create_deltastream_client(credentials: DeltastreamCredentials) -> APIConnect
             return credentials.token
 
         return APIConnection(
-            credentials.url,
-            token_provider,
-            credentials.session_id,
-            credentials.timezone,
-            credentials.organization_id,
-            credentials.role,
-            credentials.database,
-            credentials.schema,
-            credentials.store,
+            server_url=credentials.url,
+            token_provider=token_provider,
+            session_id=credentials.session_id,
+            timezone=credentials.timezone,
+            organization_id=credentials.organization_id,
+            role_name=credentials.role,
+            database_name=credentials.database,
+            schema_name=credentials.schema,
+            store_name=credentials.store,
+            compute_pool_name=credentials.compute_pool,
         )
     except AuthenticationError:
         logger.info("Unable to connect to Deltastream, authentication failed")

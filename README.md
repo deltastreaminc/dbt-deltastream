@@ -47,6 +47,7 @@ your_profile_name:
       session_id: your-session-id         # Custom session identifier for debugging purpose
       role: your-role                     # User role
       store: your-store                   # Target store name
+      compute_pool: your-compute-pool     # Compute pool name
 ```
 
 The following parameters are supported in the profile configuration:
@@ -61,6 +62,7 @@ The following parameters are supported in the profile configuration:
 - `url`: DeltaStream API URL (default: https://api.deltastream.io/v2)
 - `timezone`: Timezone for operations (default: UTC)
 - `session_id`: Custom session identifier for debugging
+- `compute_pool`: Compute pool name to be used if any else use the default compute pool (for models that require one)
 
 - `role`: User role
 - `store`: target default store name
@@ -161,9 +163,9 @@ SELECT * FROM {{ source('kafka', 'pageviews') }}
 
 ### YAML-Only Resources Examples
 
-#### Store
+Following example can be created both as managed (models) or as unmanaged (sources).
 
-Creates a connection to external systems:
+#### Managed example
 
 ```yaml
 version: 2
@@ -172,34 +174,19 @@ models:
     config:
       materialized: store
       parameters:
-      type: KAFKA        # required
+        type: KAFKA # required
         access_region: "AWS us-east-1"
         uris: "kafka.broker1.url:9092,kafka.broker2.url:9092"
         tls.ca_cert_file: "@/certs/us-east-1/self-signed-kafka-ca.crt"
-```
-
-PostgreSQL store example:
-```yaml
-version: 2
-models:
   - name: ps_store
     config:
       materialized: store
       parameters:
-        type: POSTGRESQL        # required
+        type: POSTGRESQL # required
         access_region: "AWS us-east-1"
         uris: "postgresql://mystore.com:5432/demo"
         postgres.username: "user"
         postgres.password: "password"
-```
-
-#### Stream (YAML-only)
-
-Defines a stream with explicit column definitions:
-
-```yaml
-version: 2
-models:
   - name: user_events_stream
     config:
       materialized: stream
@@ -217,15 +204,6 @@ models:
         key.format: 'primitive'
         key.type: 'VARCHAR'
         timestamp: 'event_time'
-```
-
-#### Changelog (YAML-only)
-
-Defines a changelog with explicit column definitions and primary key:
-
-```yaml
-version: 2
-models:
   - name: order_changes
     config:
       materialized: changelog
@@ -242,21 +220,89 @@ models:
       parameters:
         topic: 'order_updates'
         value.format: 'json'
-```
-
-#### Entity (YAML-only)
-
-Defines an entity in a store:
-
-```yaml
-version: 2
-models:
   - name: pv_kinesis
     config:
       materialized: entity
       store: kinesis_store
       parameters:
         'kinesis.shards' = 3
+  - name: my_compute_pool
+    config:
+      materialized: compute_pool
+      parameters:
+        'compute_pool.size' = 'small',
+        'compute_pool.timeout_min' = 5
+```
+
+#### Unmanaged example
+
+```yaml
+version: 2
+sources:
+- name: example # source name, not used in DeltaStream but required by dbt for the {{ source("example", "...") }}
+  tables:
+  - name: my_kafka_store
+    config:
+      materialized: store
+      parameters:
+        type: KAFKA # required
+        access_region: "AWS us-east-1"
+        uris: "kafka.broker1.url:9092,kafka.broker2.url:9092"
+        tls.ca_cert_file: "@/certs/us-east-1/self-signed-kafka-ca.crt"
+  - name: ps_store
+    config:
+      materialized: store
+      parameters:
+        type: POSTGRESQL # required
+        access_region: "AWS us-east-1"
+        uris: "postgresql://mystore.com:5432/demo"
+        postgres.username: "user"
+        postgres.password: "password"
+  - name: user_events_stream
+    config:
+      materialized: stream
+      columns:
+        event_time:
+          type: TIMESTAMP
+          not_null: true
+        user_id:
+          type: VARCHAR
+        action:
+          type: VARCHAR
+      parameters:
+        topic: 'user_events'
+        value.format: 'json'
+        key.format: 'primitive'
+        key.type: 'VARCHAR'
+        timestamp: 'event_time'
+  - name: order_changes
+    config:
+      materialized: changelog
+      columns:
+        order_id:
+          type: VARCHAR
+          not_null: true
+        status:
+          type: VARCHAR
+        updated_at:
+          type: TIMESTAMP
+      primary_key:
+        - order_id
+      parameters:
+        topic: 'order_updates'
+        value.format: 'json'
+  - name: pv_kinesis
+    config:
+      materialized: entity
+      store: kinesis_store
+      parameters:
+        'kinesis.shards': 3
+  - name: my_compute_pool
+    config:
+      materialized: compute_pool
+      parameters:
+        'compute_pool.size': 'small'
+        'compute_pool.timeout_min': 5
 ```
 
 ### SQL Models

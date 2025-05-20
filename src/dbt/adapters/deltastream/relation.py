@@ -1,6 +1,5 @@
 from dataclasses import dataclass
-from typing import Optional, Type, TypeVar, Union
-from enum import Enum
+from typing import Optional, Type, Union
 
 from dbt_common.dataclass_schema import StrEnum
 from dbt.adapters.base.relation import RelationType

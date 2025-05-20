@@ -39,11 +39,13 @@ def test_missing_schema():
     with pytest.raises(DbtRuntimeError, match="Must specify schema"):
         DeltastreamCredentials(**data)
 
+
 def test_missing_organization_id():
     data = valid_credentials_data()
     data["organization_id"] = ""
     with pytest.raises(DbtRuntimeError, match="Must specify organization ID"):
         DeltastreamCredentials(**data)
+
 
 def test_valid_credentials_properties():
     data = valid_credentials_data()
@@ -82,3 +84,15 @@ def test_create_deltastream_client_auth_error(monkeypatch):
     )
     with pytest.raises(AuthenticationError, match="Test error"):
         create_deltastream_client(creds)
+
+
+def test_compute_pool_support():
+    data = valid_credentials_data()
+    data["compute_pool"] = "test-pool"
+    creds = DeltastreamCredentials(**data)
+    assert creds.compute_pool == "test-pool"
+
+    # Verify it works with None value too
+    data.pop("compute_pool", None)
+    creds = DeltastreamCredentials(**data)
+    assert creds.compute_pool is None
