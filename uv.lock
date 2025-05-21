@@ -371,7 +371,7 @@ wheels = [
 
 [[package]]
 name = "dbt-deltastream"
-version = "1.9.2"
+version = "1.10.0"
 source = { editable = "." }
 dependencies = [
     { name = "agate" },
