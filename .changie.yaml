@@ -27,8 +27,10 @@ changeFormat: |-
 kinds:
   - label: Breaking Changes
     auto: major
-  - label: Features
+  - label: Adapter minor update
     auto: minor
+  - label: Features
+    auto: patch 
   - label: Fixes
     auto: patch
   - label: Docs
