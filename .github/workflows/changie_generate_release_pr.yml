@@ -39,6 +39,16 @@ jobs:
           sed -i "s/version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${LATEST_VERSION_STRIPPED}\"/" pyproject.toml
         fi
 
+    - name: Update version in __version__.py
+      run: |
+        LATEST_VERSION=${{ steps.latest.outputs.output }}
+        LATEST_VERSION_STRIPPED=${LATEST_VERSION#v}
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+          sed -i '' "s/version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${LATEST_VERSION_STRIPPED}\"/" src/dbt/adapters/deltastream/__version__.py
+        else
+          sed -i "s/version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"${LATEST_VERSION_STRIPPED}\"/" src/dbt/adapters/deltastream/__version__.py
+        fi
+
     - name: Create Pull Request
       uses: peter-evans/create-pull-request@v4
       with:
