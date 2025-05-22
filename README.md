@@ -378,6 +378,53 @@ FROM {{ ref('purchase_events') }}
 GROUP BY product_id
 ```
 
+## Query Termination Macros
+
+DeltaStream dbt adapter provides macros to help you manage and terminate running queries directly from dbt.
+
+### Terminate a Specific Query
+
+Use the `terminate_query` macro to terminate a query by its ID:
+
+```bash
+dbt run-operation terminate_query --args '{query_id: "<QUERY_ID>"}'
+```
+
+### Terminate All Running Queries
+
+Use the `terminate_all_queries` macro to terminate all currently running queries:
+
+```bash
+dbt run-operation terminate_all_queries
+```
+
+These macros leverage DeltaStream's `LIST QUERIES;` and `TERMINATE QUERY <query_id>;` SQL commands to identify and terminate running queries. This is useful for cleaning up long-running or stuck jobs during development or operations.
+Using this specific macro is not recommended in production environments as it will stop all queries including those that weren't created by the current user or in dbt.
+
+## Query Listing Macro
+
+### List All Queries
+
+The `list_all_queries` macro displays all queries currently known to DeltaStream, including their state, owner, and SQL. It prints a formatted table to the dbt logs for easy inspection.
+
+**Usage:**
+
+```bash
+dbt run-operation list_all_queries
+```
+
+**Example Output:**
+
+```
+ID | Name | Version | IntendedState | ActualState | Query | Owner | CreatedAt | UpdatedAt
+-----------------------------------------------------------------------------------------
+<query row 1>
+<query row 2>
+...
+```
+
+This macro is useful for debugging, monitoring, and operational tasks. It leverages DeltaStream's `LIST QUERIES;` SQL command and prints the results in a readable table format.
+
 ## Contributing
 
 We welcome contributions! Please feel free to submit a Pull Request.
