@@ -203,7 +203,7 @@ class DeltastreamAdapter(BaseAdapter):
         """Get the column definitions for a relation"""
         try:
             (_, agate_table) = self.connections.query(
-                'DESCRIBE RELATION COLUMNS"{}"."{}"."{}";'.format(
+                'DESCRIBE RELATION COLUMNS "{}"."{}"."{}";'.format(
                     relation.database, relation.schema, relation.identifier
                 )
             )
@@ -212,8 +212,7 @@ class DeltastreamAdapter(BaseAdapter):
                 column_info = DeltastreamColumn(
                     column=row[0],  # column name
                     dtype=row[1],  # data type
-                    mode=row[2],  # mode (nullable or not)
-                    fields=None,
+                    mode= "NULLABLE" if row[2] else "REQUIRED",  # mode (nullable or not)
                 )
                 columns.append(column_info)
             return columns

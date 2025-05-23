@@ -16,7 +16,7 @@
   {{ run_hooks(pre_hooks) }}
 
   {% call statement('main') -%}
-    {{ deltastream__create_table_as(target_relation, sql, parameters) }}
+    {{ deltastream__create_deltastream_table_as(target_relation, sql, parameters) }}
   {%- endcall %}
 
   {{ run_hooks(post_hooks) }}
