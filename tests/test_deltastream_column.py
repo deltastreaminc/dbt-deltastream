@@ -10,7 +10,7 @@ from dbt.adapters.base.column import Column  # used for monkeypatching in tests
 
 def test_flatten_no_nested():
     # Test flatten for column without nested fields
-    col = DeltastreamColumn("col1", "STRING", [], None)
+    col = DeltastreamColumn("col1", "STRING")
     flat = col.flatten()
     assert len(flat) == 1
     assert flat[0].column == "col1"
@@ -19,8 +19,8 @@ def test_flatten_no_nested():
 
 def test_flatten_nested():
     # Test flatten for nested column: parent with one child
-    child = DeltastreamColumn("child", "INTEGER", [], None)
-    parent = DeltastreamColumn("parent", "RECORD", [child], None)
+    child = DeltastreamColumn("child", "INTEGER")
+    parent = DeltastreamColumn("parent", "RECORD", None, [child])
     flat = parent.flatten()
     assert len(flat) == 1
     assert flat[0].column == "parent.child"
@@ -41,8 +41,8 @@ def test_literal():
 
 def test_data_type_record():
     # Test data_type for RECORD type column with nested fields
-    child = DeltastreamColumn("child", "INTEGER", [])
-    record = DeltastreamColumn("record", "RECORD", [child])
+    child = DeltastreamColumn("child", "INTEGER")
+    record = DeltastreamColumn("record", "RECORD", None, [child])
     dt = record.data_type
     assert "STRUCT<" in dt
     assert "`child`" in dt
@@ -51,7 +51,7 @@ def test_data_type_record():
 
 def test_data_type_record_empty():
     # Test RECORD with no subfields
-    col = DeltastreamColumn("rec", "RECORD", [], None)
+    col = DeltastreamColumn("rec", "RECORD")
     assert col.data_type == "STRUCT<>"
 
 
@@ -82,7 +82,7 @@ def test_is_integer_negative():
 
 def test_repr():
     # Test __repr__ method returns a string containing name, data_type, and mode
-    col = DeltastreamColumn("col", "STRING", [], "NULLABLE")
+    col = DeltastreamColumn("col", "STRING", "NULLABLE")
     rep = repr(col)
     assert "DeltastreamColumn" in rep
     assert "col" in rep

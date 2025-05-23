@@ -21,8 +21,8 @@ class DeltastreamColumn(Column):
         self,
         column: str,
         dtype: str,
-        fields: Optional[List[Self]] = None,
         mode: Optional[str] = None,
+        fields: Optional[List[Self]] = None,
     ) -> None:
         super().__init__(column, dtype)
         self.fields = fields or []
