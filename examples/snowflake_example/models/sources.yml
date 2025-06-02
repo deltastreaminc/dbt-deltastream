@@ -1,32 +1,45 @@
 version: 2
 
 sources:
-  - name: bronze
-    description: "Data comes from kafka"
-    schema: bronze 
-    tables:
-      - name: pageviews
-        description: "Pageviews data"
-        columns:
-          - name: viewtime
-            type: timestamp  
-          - name: userid
-            type: varchar
-          - name: pageid
-            type: varchar
-            
-      - name: users_log
-        description: "Users log data"
-        columns:
-          - name: registertime
-            type: timestamp 
-          - name: userid
-            type: varchar
-          - name: regionid
-            type: varchar
-          - name: gender
-            type: varchar
-          - name: interests
-            type: array 
-          - name: contactinfo
-            type: object
+- name: kafka # source name, not used in DeltaStream but required by dbt
+  schema: public # schema where the stream will be created, `public` schema is created upon database creation
+  tables:
+    - name: pageviews # stream name
+      description: "Pageviews stream"
+      config:
+        materialized: stream
+        parameters:
+          store: trial_store
+          topic: pageviews
+          'value.format': JSON
+      columns:
+        - name: viewtime
+          type: BIGINT
+        - name: userid
+          type: VARCHAR
+        - name: pageid
+          type: VARCHAR
+    - name: users_log
+      description: "Users log"
+      config:
+        materialized: changelog
+        primary_key: userid
+        parameters:
+          store: trial_store
+          'topic': 'users'
+          'key.format': 'json'
+          'key.type': 'STRUCT<userid VARCHAR>'
+          'value.format': 'json'
+      columns:
+        - name: registertime
+          type: BIGINT
+        - name: userid
+          type: VARCHAR
+        - name: regionid
+          type: VARCHAR
+        - name: gender
+          type: VARCHAR
+        - name: interests
+          type: ARRAY<VARCHAR>
+        - name: contactinfo
+          type: STRUCT<phone VARCHAR, city VARCHAR, "state" VARCHAR, zipcode VARCHAR>
