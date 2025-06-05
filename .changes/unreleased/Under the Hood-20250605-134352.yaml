@@ -1,6 +1,0 @@
-kind: Under the Hood
-body: Remove token from the output of dbt debug
-time: 2025-06-05T13:43:52.114442+02:00
-custom:
-    Author: Kayrnt
-    Issue: ""
