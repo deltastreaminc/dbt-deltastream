@@ -157,3 +157,7 @@
 
   {{ log('Created database: ' ~ database_name, info = True) }}
 {% endmacro %}
+
+{% macro deltastream__terminate_query(query_id) -%}
+  TERMINATE QUERY {{query_id}};
+{% endmacro %}
