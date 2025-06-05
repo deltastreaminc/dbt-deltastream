@@ -1,0 +1,6 @@
+kind: Fixes
+body: Fix column description internal to prepare for test support
+time: 2025-05-22T18:12:34.019099-10:00
+custom:
+    Author: Kayrnt
+    Issue: ""

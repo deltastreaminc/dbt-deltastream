@@ -20,7 +20,12 @@
   as {{ sql }};
 {%- endmacro %}
 
-{% macro deltastream__create_table_as(relation, sql, parameters) -%}
+{# dbt standard create_table_as macro override #}
+{% macro deltastream__create_table_as(temporary, relation, compiled_code) -%}
+  {{ deltastream__create_deltastream_table_as(relation, compiled_code, {}) }}
+{%- endmacro %}
+
+{% macro deltastream__create_deltastream_table_as(relation, sql, parameters) -%}
   create table {{ relation }}
   {{ deltastream__with_parameters(parameters) }}
   as {{ sql }};
