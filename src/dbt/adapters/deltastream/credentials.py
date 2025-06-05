@@ -47,7 +47,6 @@ class DeltastreamCredentials(Credentials):
             "session_id",
             "store",
             "timezone",
-            "token",
             "url",
         )
 
