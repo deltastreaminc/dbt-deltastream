@@ -212,7 +212,7 @@ class DeltastreamAdapter(BaseAdapter):
                 column_info = DeltastreamColumn(
                     column=row[0],  # column name
                     dtype=row[1],  # data type
-                    mode= "NULLABLE" if row[2] else "REQUIRED",  # mode (nullable or not)
+                    mode="NULLABLE" if row[2] else "REQUIRED",  # mode (nullable or not)
                 )
                 columns.append(column_info)
             return columns
