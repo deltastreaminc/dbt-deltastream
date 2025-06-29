@@ -22,3 +22,7 @@
   
   {{ return(renamed) }}
 {%- endmacro %}
+
+{% macro deltastream__get_catalog_relations(information_schema, relations) -%}
+    {{ return(adapter.get_catalog_relations_parallel(relations)) }}
+{%- endmacro %}
