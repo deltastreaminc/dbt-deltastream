@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from dbt.adapters.contracts.relation import Path
 from dbt.adapters.events.logging import AdapterLogger
 from typing import Any, Dict, List, Optional
+import concurrent.futures
+from threading import current_thread
 
 import dbt_common.exceptions
 from dbt_common.contracts.constraints import (
@@ -212,7 +214,7 @@ class DeltastreamAdapter(BaseAdapter):
                 column_info = DeltastreamColumn(
                     column=row[0],  # column name
                     dtype=row[1],  # data type
-                    mode= "NULLABLE" if row[2] else "REQUIRED",  # mode (nullable or not)
+                    mode="NULLABLE" if row[2] else "REQUIRED",  # mode (nullable or not)
                 )
                 columns.append(column_info)
             return columns
@@ -488,5 +490,160 @@ class DeltastreamAdapter(BaseAdapter):
         return "TIME"
 
     @classmethod
-    def date_function(self) -> str:
+    def date_function(cls) -> str:
         return "current_date()"
+
+    @available
+    def get_catalog_relations_parallel(
+        self, relations: List[BaseRelation]
+    ) -> "agate.Table":
+        """Get catalog information for relations using parallel DESCRIBE RELATION COLUMNS calls"""
+        import agate
+
+        # Handle empty relations case early
+        if not relations:
+            # Return empty table with correct schema
+            column_names = [
+                "table_database",
+                "table_schema",
+                "table_name",
+                "table_type",
+                "table_comment",
+                "column_name",
+                "column_index",
+                "column_type",
+                "column_comment",
+                "table_owner",
+            ]
+            column_types = [
+                agate.Text(),
+                agate.Text(),
+                agate.Text(),
+                agate.Text(),
+                agate.Text(),
+                agate.Text(),
+                agate.Number(),
+                agate.Text(),
+                agate.Text(),
+                agate.Text(),
+            ]
+            return agate.Table([], column_names, column_types)
+
+        # Get the number of threads to use for parallel processing
+        # Use min of relations count and thread count from config
+        max_workers = min(len(relations), getattr(self.config, "threads", 4))
+
+        def describe_relation_columns(relation: BaseRelation) -> List[Dict[str, Any]]:
+            """Describe columns for a single relation"""
+            try:
+                # Create a temporary connection for this thread
+                thread_connection = self.connections.get_thread_connection()
+
+                sql = 'DESCRIBE RELATION COLUMNS "{}"."{}"."{}";'.format(
+                    relation.database, relation.schema, relation.identifier
+                )
+
+                (_, agate_table) = self.connections.query(sql)
+
+                # Convert agate table rows to list of dicts
+                result_rows = []
+                for idx, row in enumerate(agate_table.rows):
+                    result_rows.append(
+                        {
+                            "table_database": relation.database,
+                            "table_schema": relation.schema,
+                            "table_name": relation.identifier,
+                            "table_type": "TABLE",  # DeltaStream doesn't distinguish types in DESCRIBE output
+                            "table_comment": "",
+                            "column_name": row[0],  # Name
+                            "column_index": idx,
+                            "column_type": row[1],  # Type
+                            "column_comment": "",
+                            "table_owner": "",
+                        }
+                    )
+
+                return result_rows
+
+            except Exception as e:
+                logger.error(f"Error describing relation {relation}: {str(e)}")
+                return []
+
+        # Process relations in parallel
+        all_rows = []
+
+        if max_workers == 1:
+            # Single-threaded execution
+            for relation in relations:
+                rows = describe_relation_columns(relation)
+                all_rows.extend(rows)
+        else:
+            # Multi-threaded execution
+            with concurrent.futures.ThreadPoolExecutor(
+                max_workers=max_workers
+            ) as executor:
+                future_to_relation = {
+                    executor.submit(describe_relation_columns, relation): relation
+                    for relation in relations
+                }
+
+                for future in concurrent.futures.as_completed(future_to_relation):
+                    relation = future_to_relation[future]
+                    try:
+                        rows = future.result()
+                        all_rows.extend(rows)
+                    except Exception as e:
+                        logger.error(f"Error processing relation {relation}: {str(e)}")
+
+        # Create agate table from collected rows
+        if not all_rows:
+            # Return empty table with correct schema (this shouldn't happen with valid relations)
+            column_names = [
+                "table_database",
+                "table_schema",
+                "table_name",
+                "table_type",
+                "table_comment",
+                "column_name",
+                "column_index",
+                "column_type",
+                "column_comment",
+                "table_owner",
+            ]
+            column_types = [
+                agate.Text(),
+                agate.Text(),
+                agate.Text(),
+                agate.Text(),
+                agate.Text(),
+                agate.Text(),
+                agate.Number(),
+                agate.Text(),
+                agate.Text(),
+                agate.Text(),
+            ]
+            return agate.Table([], column_names, column_types)
+
+        # Extract column names and types from first row
+        column_names = list(all_rows[0].keys())
+
+        # Convert rows to list of lists for agate
+        table_rows = []
+        for row_dict in all_rows:
+            table_rows.append([row_dict[col] for col in column_names])
+
+        # Define column types
+        column_types = [
+            agate.Text(),  # table_database
+            agate.Text(),  # table_schema
+            agate.Text(),  # table_name
+            agate.Text(),  # table_type
+            agate.Text(),  # table_comment
+            agate.Text(),  # column_name
+            agate.Number(),  # column_index
+            agate.Text(),  # column_type
+            agate.Text(),  # column_comment
+            agate.Text(),  # table_owner
+        ]
+
+        return agate.Table(table_rows, column_names, column_types)
