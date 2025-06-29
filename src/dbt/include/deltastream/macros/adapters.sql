@@ -166,3 +166,7 @@
 {% macro deltastream__terminate_query(query_id) -%}
   TERMINATE QUERY {{query_id}};
 {% endmacro %}
+
+{% macro deltastream__restart_query(query_id) -%}
+  RESTART QUERY {{query_id}};
+{% endmacro %}
