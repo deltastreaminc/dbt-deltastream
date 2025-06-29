@@ -21,6 +21,7 @@ pip install dbt-deltastream
 ```
 
 Requirements:
+
 - Python >= 3.11
 - dbt-core >= 1.8.0
 
@@ -34,31 +35,33 @@ your_profile_name:
   outputs:
     dev:
       type: deltastream
-      
+
       # Required Parameters
-      token: your-api-token            # Authentication token
-      database: your-database          # Target database name
-      schema: your-schema              # Target schema name
-      organization_id: your-org-id     # Organization identifier
-      
+      token: your-api-token # Authentication token
+      database: your-database # Target database name
+      schema: your-schema # Target schema name
+      organization_id: your-org-id # Organization identifier
+
       # Optional Parameters
-      url: https://api.deltastream.io/v2  # DeltaStream API URL
-      timezone: UTC                       # Timezone for operations
-      session_id: your-session-id         # Custom session identifier for debugging purpose
-      role: your-role                     # User role
-      store: your-store                   # Target store name
-      compute_pool: your-compute-pool     # Compute pool name
+      url: https://api.deltastream.io/v2 # DeltaStream API URL
+      timezone: UTC # Timezone for operations
+      session_id: your-session-id # Custom session identifier for debugging purpose
+      role: your-role # User role
+      store: your-store # Target store name
+      compute_pool: your-compute-pool # Compute pool name
 ```
 
 The following parameters are supported in the profile configuration:
 
 ### Required Parameters
+
 - `token`: Authentication token for DeltaStream API
 - `database`: Target default database name
 - `schema`: Target default schema name
 - `organization_id`: Organization identifier
 
 ### Optional Parameters
+
 - `url`: DeltaStream API URL (default: https://api.deltastream.io/v2)
 - `timezone`: Timezone for operations (default: UTC)
 - `session_id`: Custom session identifier for debugging
@@ -84,6 +87,7 @@ your_profile_name:
 ## Materializations
 
 DeltaStream supports two types of model definitions:
+
 1. YAML-only resources for defining infrastructure components
 2. SQL models for data transformations
 
@@ -94,7 +98,8 @@ YAML-only resources can be used to define external system connections such as st
 They can be either: managed or unmanaged by dbt DAG.
 
 #### Managed
-When a YAML-only resource is managed by dbt DAG, it is automatically included in the DAG by creating them as *models*, for instance:
+
+When a YAML-only resource is managed by dbt DAG, it is automatically included in the DAG by creating them as _models_, for instance:
 
 ```yaml
 version: 2
@@ -103,9 +108,9 @@ models:
     config:
       materialized: stream
       parameters:
-        topic: 'user_events'
-        value.format: 'json'
-        store: 'my_kafka_store'
+        topic: "user_events"
+        value.format: "json"
+        store: "my_kafka_store"
 ```
 
 In that case, we're running into a dbt limitation where we need to create a placeholder .sql file for the model to be detected. That .sql file would contain any content as long as it doesn't contain a "SELECT". We expect that limitation to be lifted in future dbt versions but it's still part of discussions.
@@ -117,29 +122,30 @@ SELECT * FROM {{ ref('my_kafka_stream') }}
 ```
 
 #### Unmanaged
-When a YAML-only resource is not managed by dbt DAG, it has to be created as *sources*, for instance:
+
+When a YAML-only resource is not managed by dbt DAG, it has to be created as _sources_, for instance:
 
 ```yaml
 version: 2
 sources:
-- name: kafka
-  schema: public
-  tables:
-    - name: pageviews
-      description: "Pageviews stream"
-      config:
-        materialized: stream
-        parameters:
-          topic: pageviews
-          store: 'my_kafka_store'
-          'value.format': JSON
-      columns:
-        - name: viewtime
-          type: BIGINT
-        - name: userid
-          type: VARCHAR
-        - name: pageid
-          type: VARCHAR
+  - name: kafka
+    schema: public
+    tables:
+      - name: pageviews
+        description: "Pageviews stream"
+        config:
+          materialized: stream
+          parameters:
+            topic: pageviews
+            store: "my_kafka_store"
+            "value.format": JSON
+        columns:
+          - name: viewtime
+            type: BIGINT
+          - name: userid
+            type: VARCHAR
+          - name: pageid
+            type: VARCHAR
 ```
 
 Then it requires to execute specific macros to create the resources on demand.
@@ -239,70 +245,70 @@ models:
 ```yaml
 version: 2
 sources:
-- name: example # source name, not used in DeltaStream but required by dbt for the {{ source("example", "...") }}
-  tables:
-  - name: my_kafka_store
-    config:
-      materialized: store
-      parameters:
-        type: KAFKA # required
-        access_region: "AWS us-east-1"
-        uris: "kafka.broker1.url:9092,kafka.broker2.url:9092"
-        tls.ca_cert_file: "@/certs/us-east-1/self-signed-kafka-ca.crt"
-  - name: ps_store
-    config:
-      materialized: store
-      parameters:
-        type: POSTGRESQL # required
-        access_region: "AWS us-east-1"
-        uris: "postgresql://mystore.com:5432/demo"
-        postgres.username: "user"
-        postgres.password: "password"
-  - name: user_events_stream
-    config:
-      materialized: stream
-      columns:
-        event_time:
-          type: TIMESTAMP
-          not_null: true
-        user_id:
-          type: VARCHAR
-        action:
-          type: VARCHAR
-      parameters:
-        topic: 'user_events'
-        value.format: 'json'
-        key.format: 'primitive'
-        key.type: 'VARCHAR'
-        timestamp: 'event_time'
-  - name: order_changes
-    config:
-      materialized: changelog
-      columns:
-        order_id:
-          type: VARCHAR
-          not_null: true
-        status:
-          type: VARCHAR
-        updated_at:
-          type: TIMESTAMP
-      primary_key:
-        - order_id
-      parameters:
-        topic: 'order_updates'
-        value.format: 'json'
-  - name: pv_kinesis
-    config:
-      materialized: entity
-      store: kinesis_store
-      parameters:
-        'kinesis.shards': 3
-  - name: my_compute_pool
-    config:
-      materialized: compute_pool
-      parameters:
-        'compute_pool.size': 'small'
-        'compute_pool.timeout_min': 5
+  - name: example # source name, not used in DeltaStream but required by dbt for the {{ source("example", "...") }}
+    tables:
+      - name: my_kafka_store
+        config:
+          materialized: store
+          parameters:
+            type: KAFKA # required
+            access_region: "AWS us-east-1"
+            uris: "kafka.broker1.url:9092,kafka.broker2.url:9092"
+            tls.ca_cert_file: "@/certs/us-east-1/self-signed-kafka-ca.crt"
+      - name: ps_store
+        config:
+          materialized: store
+          parameters:
+            type: POSTGRESQL # required
+            access_region: "AWS us-east-1"
+            uris: "postgresql://mystore.com:5432/demo"
+            postgres.username: "user"
+            postgres.password: "password"
+      - name: user_events_stream
+        config:
+          materialized: stream
+          columns:
+            event_time:
+              type: TIMESTAMP
+              not_null: true
+            user_id:
+              type: VARCHAR
+            action:
+              type: VARCHAR
+          parameters:
+            topic: "user_events"
+            value.format: "json"
+            key.format: "primitive"
+            key.type: "VARCHAR"
+            timestamp: "event_time"
+      - name: order_changes
+        config:
+          materialized: changelog
+          columns:
+            order_id:
+              type: VARCHAR
+              not_null: true
+            status:
+              type: VARCHAR
+            updated_at:
+              type: TIMESTAMP
+          primary_key:
+            - order_id
+          parameters:
+            topic: "order_updates"
+            value.format: "json"
+      - name: pv_kinesis
+        config:
+          materialized: entity
+          store: kinesis_store
+          parameters:
+            "kinesis.shards": 3
+      - name: my_compute_pool
+        config:
+          materialized: compute_pool
+          parameters:
+            "compute_pool.size": "small"
+            "compute_pool.timeout_min": 5
 ```
 
 ### SQL Models
@@ -322,7 +328,7 @@ Creates a continuous streaming transformation:
     }
 ) }}
 
-SELECT 
+SELECT
     event_time,
     user_id,
     action
@@ -343,7 +349,7 @@ Captures changes in the data stream:
     }
 ) }}
 
-SELECT 
+SELECT
     order_id,
     status,
     updated_at
@@ -357,7 +363,7 @@ Creates a traditional batch table:
 ```sql
 {{ config(materialized='table') }}
 
-SELECT 
+SELECT
     date,
     SUM(amount) as daily_total
 FROM {{ ref('transactions') }}
@@ -371,14 +377,14 @@ Creates a continuously updated view:
 ```sql
 {{ config(materialized='materialized_view') }}
 
-SELECT 
+SELECT
     product_id,
     COUNT(*) as purchase_count
 FROM {{ ref('purchase_events') }}
 GROUP BY product_id
 ```
 
-## Query Termination Macros
+## Query Macros
 
 DeltaStream dbt adapter provides macros to help you manage and terminate running queries directly from dbt.
 
@@ -401,8 +407,6 @@ dbt run-operation terminate_all_queries
 These macros leverage DeltaStream's `LIST QUERIES;` and `TERMINATE QUERY <query_id>;` SQL commands to identify and terminate running queries. This is useful for cleaning up long-running or stuck jobs during development or operations.
 Using this specific macro is not recommended in production environments as it will stop all queries including those that weren't created by the current user or in dbt.
 
-## Query Listing Macro
-
 ### List All Queries
 
 The `list_all_queries` macro displays all queries currently known to DeltaStream, including their state, owner, and SQL. It prints a formatted table to the dbt logs for easy inspection.
@@ -424,6 +428,22 @@ ID | Name | Version | IntendedState | ActualState | Query | Owner | CreatedAt | 
 ```
 
 This macro is useful for debugging, monitoring, and operational tasks. It leverages DeltaStream's `LIST QUERIES;` SQL command and prints the results in a readable table format.
+
+### Restart a Specific Query
+
+Use the `restart_query` macro to restart a failed query by its ID:
+
+```bash
+dbt run-operation restart_query --args '{query_id: "<QUERY_ID>"}'
+```
+
+Before restarting a query, you can use the `describe_query` macro to check the logs and determine if it's worthwhile restarting:
+
+```bash
+dbt run-operation describe_query --args '{query_id: "<QUERY_ID>"}'
+```
+
+This will display the query's current state and any error information to help you understand why the query failed.
 
 ## Contributing
 
