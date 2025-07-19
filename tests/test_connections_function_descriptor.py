@@ -307,10 +307,19 @@ class TestRetryLogicFeatures:
         def mock_async_query(sql):
             raise not_ready_error
         
+        # Mock time.time to return increasing values that exceed max_wait_seconds
+        current_time = 0
+        def mock_time():
+            nonlocal current_time
+            if current_time == 0:
+                current_time = 35  # First call gets 0, subsequent calls get 35 (elapsed > 30)
+                return 0
+            return 35
+        
         with patch.object(connection_manager, 'async_query', side_effect=mock_async_query):
             with patch('asyncio.run', side_effect=lambda coro: mock_async_query(sql)):
                 with patch('time.sleep'):  # Mock sleep to speed up test
-                    with patch('time.time', side_effect=[0, 35]):  # Mock elapsed time > max_wait
+                    with patch('time.time', side_effect=mock_time):  # Mock elapsed time > max_wait
                         with pytest.raises(SQLError):
                             connection_manager._query_with_function_retry(sql, max_wait_seconds=30)
 
