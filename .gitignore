@@ -83,3 +83,6 @@ docs
 
 # scripts
 install.sh
+
+# uv lock files
+uv.lock

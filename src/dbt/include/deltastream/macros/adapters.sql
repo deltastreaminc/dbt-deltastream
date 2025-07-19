@@ -81,10 +81,101 @@
   ;
 {%- endmacro %}
 
+{% macro deltastream__create_function(resource, parameters) -%}
+  create function {{ resource.identifier }}
+  {%- if parameters.get('args') %}
+    (
+    {%- for arg in parameters.get('args') %}
+      {{ arg['name'] }} {{ arg['type'] }}{% if not loop.last %}, {% endif %}
+    {%- endfor %}
+    )
+  {%- else %}
+    ()
+  {%- endif %}
+  returns {{ parameters.get('returns', 'VARCHAR') }}
+  language {{ parameters.get('language', 'JAVA') }}
+  {{ deltastream__with_function_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
+
+{% macro deltastream__drop_function(resource, parameters) -%}
+  drop function {{ resource.identifier }}
+  {%- if parameters.get('args') %}
+    (
+    {%- for arg in parameters.get('args') %}
+      {{ arg['name'] }} {{ arg['type'] }}{% if not loop.last %}, {% endif %}
+    {%- endfor %}
+    )
+  {%- else %}
+    ()
+  {%- endif %}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__create_function_source(resource, parameters) -%}
+  {%- if parameters.get('file') %}
+    {{ adapter.create_function_source_with_file(resource.identifier, parameters) }}
+  {%- else %}
+    create function_source {{ resource.identifier }}
+    {{ deltastream__with_parameters(parameters) }}
+    ;
+  {%- endif %}
+{%- endmacro %}
+
+
+
+{% macro deltastream__drop_function_source(resource, parameters) -%}
+  drop function_source {{ resource.identifier }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__create_descriptor_source(resource, parameters) -%}
+  {%- if parameters.get('file') %}
+    {{ adapter.create_descriptor_source_with_file(resource.identifier, parameters) }}
+  {%- else %}
+    create descriptor_source {{ resource.identifier }}
+    {{ deltastream__with_parameters(parameters) }}
+    ;
+  {%- endif %}
+{%- endmacro %}
+
+
+
+{% macro deltastream__drop_descriptor_source(resource, parameters) -%}
+  drop descriptor_source {{ resource.identifier }}
+  ;
+{%- endmacro %}
+
 {% macro deltastream__with_parameters(parameters) -%}
   {% if parameters.items() | length > 0 %}
     with (
     {%- for parameter, value in parameters.items() %}
+      {%- if parameter == 'type' or parameter == 'kafka.sasl.hash_function' %}
+      '{{ parameter }}' = {{ value }}{% if not loop.last %},{% endif %}
+      {%- elif parameter == 'access_region' %}
+      '{{ parameter }}' = "{{ value }}"{% if not loop.last %},{% endif %}
+      {%- elif value is number %}
+      '{{ parameter }}' = {{ value }}{% if not loop.last %},{% endif %}
+      {%- else %}
+      '{{ parameter }}' = '{{ value }}'{% if not loop.last %},{% endif %}
+      {%- endif %}
+    {%- endfor %}
+    )
+  {% endif %}
+{%- endmacro %}
+
+{% macro deltastream__with_function_parameters(parameters) -%}
+  {%- set excluded_params = ['args', 'returns', 'language'] -%}
+  {%- set filtered_params = {} -%}
+  {%- for parameter, value in parameters.items() -%}
+    {%- if parameter not in excluded_params -%}
+      {%- set _ = filtered_params.update({parameter: value}) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {% if filtered_params.items() | length > 0 %}
+    with (
+    {%- for parameter, value in filtered_params.items() %}
       {%- if parameter == 'type' or parameter == 'kafka.sasl.hash_function' %}
       '{{ parameter }}' = {{ value }}{% if not loop.last %},{% endif %}
       {%- elif parameter == 'access_region' %}
