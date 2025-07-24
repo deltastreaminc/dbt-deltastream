@@ -167,6 +167,15 @@
   TERMINATE QUERY {{query_id}};
 {% endmacro %}
 
+
 {% macro deltastream__restart_query(query_id) -%}
   RESTART QUERY {{query_id}};
 {% endmacro %}
+
+{% macro deltastream__create_application(application_name, statements) -%}
+  BEGIN APPLICATION {{ application_name }}
+  {%- for statement in statements %}
+    {{ statement.rstrip(';') }};
+  {%- endfor %}
+  END APPLICATION;
+{%- endmacro %}

@@ -429,6 +429,7 @@ ID | Name | Version | IntendedState | ActualState | Query | Owner | CreatedAt | 
 
 This macro is useful for debugging, monitoring, and operational tasks. It leverages DeltaStream's `LIST QUERIES;` SQL command and prints the results in a readable table format.
 
+
 ### Restart a Specific Query
 
 Use the `restart_query` macro to restart a failed query by its ID:
@@ -444,6 +445,26 @@ dbt run-operation describe_query --args '{query_id: "<QUERY_ID>"}'
 ```
 
 This will display the query's current state and any error information to help you understand why the query failed.
+
+
+## Application Macro
+
+### Execute Multiple Statements as a Unit
+
+The `application` macro allows you to execute multiple DeltaStream SQL statements as a single unit of work with all-or-nothing semantics. This leverages DeltaStream's APPLICATION syntax for better efficiency and resource utilization.
+
+**Usage:**
+
+```bash
+dbt run-operation application --args '{
+  application_name: "my_data_pipeline",
+  statements: [
+    "USE DATABASE my_db",
+    "CREATE STREAM user_events WITH (topic='"'"'events'"'"', value.format='"'"'json'"'"')",
+    "CREATE MATERIALIZED VIEW user_counts AS SELECT user_id, COUNT(*) FROM user_events GROUP BY user_id"
+  ]
+}'
+```
 
 ## Contributing
 
