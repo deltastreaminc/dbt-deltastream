@@ -3,7 +3,6 @@ from dbt.adapters.contracts.relation import Path
 from dbt.adapters.events.logging import AdapterLogger
 from typing import Any, Dict, List, Optional
 import concurrent.futures
-from threading import current_thread
 
 import dbt_common.exceptions
 from dbt_common.contracts.constraints import (
@@ -296,7 +295,14 @@ class DeltastreamAdapter(BaseAdapter):
     ) -> Optional["DeltastreamResource"]:
         """Create a DeltaStream resource (e.g., compute pool, store, entity, function, function_source, descriptor_source)"""
         try:
-            if resource_type in ["compute_pool", "entity", "store", "function", "function_source", "descriptor_source"]:
+            if resource_type in [
+                "compute_pool",
+                "entity",
+                "store",
+                "function",
+                "function_source",
+                "descriptor_source",
+            ]:
                 return self.DeltastreamResource(identifier, resource_type, parameters)
             else:
                 raise dbt_common.exceptions.DbtRuntimeError(
@@ -312,35 +318,35 @@ class DeltastreamAdapter(BaseAdapter):
     ) -> str:
         """Generic method to create a source with file attachment"""
         try:
-            file_path = parameters.get('file')
+            file_path = parameters.get("file")
             if not file_path:
                 raise dbt_common.exceptions.DbtRuntimeError(
                     f"{resource_type.title()} {identifier} requires a 'file' parameter"
                 )
-            
+
             # Resolve file path (support both absolute and relative paths)
             resolved_path = self._resolve_file_path(file_path)
-            
+
             # Store the resolved path for later use
             # We'll use the connection's thread-local storage to pass the file path
             conn = self.connections.get_thread_connection()
-            if not hasattr(conn, '_pending_files'):
+            if not hasattr(conn, "_pending_files"):
                 conn._pending_files = {}
-            conn._pending_files[f'{resource_type}_{identifier}'] = resolved_path
-            
+            conn._pending_files[f"{resource_type}_{identifier}"] = resolved_path
+
             # Build the SQL statement - use placeholder for file parameter since actual file is attached
             sql_parameters = parameters.copy()
             # Use a placeholder file name that indicates the file is attached
             file_name = os.path.basename(resolved_path)
-            sql_parameters['file'] = file_name
+            sql_parameters["file"] = file_name
             with_clause = self._build_with_clause(sql_parameters)
-            
+
             # Generate appropriate CREATE statement based on resource type
             resource_type_upper = resource_type.upper()
             sql = f'CREATE {resource_type_upper} "{identifier}"{with_clause};'
-            
+
             return sql
-            
+
         except SQLError as e:
             raise dbt_common.exceptions.DbtDatabaseError(
                 f"Error creating {resource_type} {identifier}: {str(e)}"
@@ -351,52 +357,52 @@ class DeltastreamAdapter(BaseAdapter):
         self, identifier: str, parameters: Dict[str, Any]
     ) -> str:
         """Create a function source with file attachment"""
-        return self._create_source_with_file('function_source', identifier, parameters)
+        return self._create_source_with_file("function_source", identifier, parameters)
 
     @available
     def create_descriptor_source_with_file(
         self, identifier: str, parameters: Dict[str, Any]
     ) -> str:
         """Create a descriptor source with file attachment"""
-        return self._create_source_with_file('descriptor_source', identifier, parameters)
-
-
+        return self._create_source_with_file(
+            "descriptor_source", identifier, parameters
+        )
 
     def _resolve_file_path(self, file_path: str) -> str:
         """Resolve file path, supporting both absolute and relative paths"""
         # Handle special @ syntax (e.g., @/schemas/file.proto)
-        if file_path.startswith('@'):
+        if file_path.startswith("@"):
             # For @ syntax, treat as relative path from project root without the @
             clean_path = file_path[1:]  # Remove the @
-            project_root = getattr(self.config, 'project_root', os.getcwd())
-            resolved_path = os.path.join(project_root, clean_path.lstrip('/'))
+            project_root = getattr(self.config, "project_root", os.getcwd())
+            resolved_path = os.path.join(project_root, clean_path.lstrip("/"))
         # Handle absolute paths
         elif os.path.isabs(file_path):
             resolved_path = file_path
         else:
             # Handle relative paths - resolve relative to project root
-            project_root = getattr(self.config, 'project_root', os.getcwd())
+            project_root = getattr(self.config, "project_root", os.getcwd())
             resolved_path = os.path.join(project_root, file_path)
-        
+
         # Validate that the file exists
         if not os.path.exists(resolved_path):
             raise dbt_common.exceptions.DbtRuntimeError(
                 f"File not found: {resolved_path} (original path: {file_path})"
             )
-        
+
         # Validate that it's actually a file (not a directory)
         if not os.path.isfile(resolved_path):
             raise dbt_common.exceptions.DbtRuntimeError(
                 f"Path is not a file: {resolved_path} (original path: {file_path})"
             )
-        
+
         return resolved_path
 
     def _build_with_clause(self, parameters: Dict[str, Any]) -> str:
         """Build WITH clause for SQL statements"""
         if not parameters:
             return ""
-        
+
         param_parts = []
         for key, value in parameters.items():
             if isinstance(value, str):
@@ -405,7 +411,7 @@ class DeltastreamAdapter(BaseAdapter):
                 param_parts.append(f"'{key}' = '{escaped_value}'")
             else:
                 param_parts.append(f"'{key}' = {value}")
-        
+
         return f" WITH ({', '.join(param_parts)})" if param_parts else ""
 
     @available
@@ -489,25 +495,35 @@ class DeltastreamAdapter(BaseAdapter):
             (_, table) = self.connections.query("LIST FUNCTIONS;")
             if table and len(table) > 0:
                 # Build the function signature to match
-                args = parameters.get('args', [])
+                args = parameters.get("args", [])
                 if args:
                     # For signature matching, we need both arg names and types
                     arg_signature_parts = []
                     for arg in args:
-                        arg_name = arg.get('name', 'arg')
-                        arg_type = arg.get('type', 'VARCHAR')
+                        arg_name = arg.get("name", "arg")
+                        arg_type = arg.get("type", "VARCHAR")
                         arg_signature_parts.append(f"{arg_name} {arg_type}")
                     signature = f"{identifier}({', '.join(arg_signature_parts)})"
                 else:
                     signature = f"{identifier}()"
-                
+
                 # Check if our function signature exists in the list
                 for row in table:
-                    if hasattr(row, 'Signature') and row.Signature.startswith(signature):
-                        return self.DeltastreamResource(identifier, "function", parameters)
+                    if hasattr(row, "Signature") and row.Signature.startswith(
+                        signature
+                    ):
+                        return self.DeltastreamResource(
+                            identifier, "function", parameters
+                        )
                     # Handle case where the row is a dict
-                    elif isinstance(row, dict) and 'Signature' in row and row['Signature'].startswith(signature):
-                        return self.DeltastreamResource(identifier, "function", parameters)
+                    elif (
+                        isinstance(row, dict)
+                        and "Signature" in row
+                        and row["Signature"].startswith(signature)
+                    ):
+                        return self.DeltastreamResource(
+                            identifier, "function", parameters
+                        )
             return None
         except SQLError as e:
             if e.code == SqlState.SQL_STATE_INVALID_RELATION:
@@ -519,40 +535,44 @@ class DeltastreamAdapter(BaseAdapter):
         try:
             # List all function sources and check if the requested one exists
             (_, table) = self.connections.query("LIST FUNCTION_SOURCES;")
-            logger.debug(f"LIST FUNCTION_SOURCES returned {len(table) if table else 0} rows")
+            logger.debug(
+                f"LIST FUNCTION_SOURCES returned {len(table) if table else 0} rows"
+            )
             if table and len(table) > 0:
                 # Extract function source names
                 all_names = []
                 for row in table:
-                    if hasattr(row, 'Name'):
+                    if hasattr(row, "Name"):
                         all_names.append(row.Name)
-                    elif isinstance(row, dict) and 'Name' in row:
-                        all_names.append(row['Name'])
-                    elif hasattr(row, '__getitem__'):
+                    elif isinstance(row, dict) and "Name" in row:
+                        all_names.append(row["Name"])
+                    elif hasattr(row, "__getitem__"):
                         try:
                             name = row[0]  # Try first column
                             all_names.append(name)
                         except (IndexError, KeyError):
                             continue
-                
+
                 # Check if our function source exists in the list
                 for row in table:
                     row_name = None
-                    if hasattr(row, 'Name'):
+                    if hasattr(row, "Name"):
                         row_name = row.Name
-                    elif isinstance(row, dict) and 'Name' in row:
-                        row_name = row['Name']
-                    elif hasattr(row, '__getitem__'):
+                    elif isinstance(row, dict) and "Name" in row:
+                        row_name = row["Name"]
+                    elif hasattr(row, "__getitem__"):
                         try:
                             row_name = row[0]  # Try first column
                         except (IndexError, KeyError):
                             continue
-                    
+
                     if row_name:
                         # Strip quotes from the name for comparison
                         clean_name = self._strip_quotes(row_name)
                         if clean_name == identifier:
-                            return self.DeltastreamResource(identifier, "function_source", {})
+                            return self.DeltastreamResource(
+                                identifier, "function_source", {}
+                            )
             return None
         except SQLError as e:
             if e.code == SqlState.SQL_STATE_INVALID_RELATION:
@@ -568,21 +588,23 @@ class DeltastreamAdapter(BaseAdapter):
                 # Check if our descriptor source exists in the list
                 for row in table:
                     row_name = None
-                    if hasattr(row, 'Name'):
+                    if hasattr(row, "Name"):
                         row_name = row.Name
-                    elif isinstance(row, dict) and 'Name' in row:
-                        row_name = row['Name']
-                    elif hasattr(row, '__getitem__'):
+                    elif isinstance(row, dict) and "Name" in row:
+                        row_name = row["Name"]
+                    elif hasattr(row, "__getitem__"):
                         try:
                             row_name = row[0]  # Try first column
                         except (IndexError, KeyError):
                             continue
-                    
+
                     if row_name:
                         # Strip quotes from the name for comparison
                         clean_name = self._strip_quotes(row_name)
                         if clean_name == identifier:
-                            return self.DeltastreamResource(identifier, "descriptor_source", {})
+                            return self.DeltastreamResource(
+                                identifier, "descriptor_source", {}
+                            )
             return None
         except SQLError as e:
             if e.code == SqlState.SQL_STATE_INVALID_RELATION:
@@ -754,9 +776,6 @@ class DeltastreamAdapter(BaseAdapter):
         def describe_relation_columns(relation: BaseRelation) -> List[Dict[str, Any]]:
             """Describe columns for a single relation"""
             try:
-                # Create a temporary connection for this thread
-                thread_connection = self.connections.get_thread_connection()
-
                 sql = 'DESCRIBE RELATION COLUMNS "{}"."{}"."{}";'.format(
                     relation.database, relation.schema, relation.identifier
                 )

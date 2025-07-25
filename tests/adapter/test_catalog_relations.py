@@ -1,7 +1,7 @@
 """Test the deltastream__get_catalog_relations macro and parallel method"""
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from dbt.adapters.deltastream.impl import DeltastreamAdapter
 from dbt.adapters.deltastream.relation import (
     DeltastreamRelation,
