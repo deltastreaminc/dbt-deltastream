@@ -13,6 +13,9 @@ A [dbt](https://www.getdbt.com/) adapter for [DeltaStream](https://deltastream.i
   - `store`: External system connection (Kafka, PostgreSQL, etc.)
   - `entity`: Entity definition in a store
   - `database`: Database definition
+  - `function`: User-defined functions (UDFs)
+  - `function_source`: Function source for Java JAR files
+  - `descriptor_source`: Descriptor source for protocol buffer schemas
 
 ## Installation
 
@@ -238,6 +241,29 @@ models:
       parameters:
         'compute_pool.size' = 'small',
         'compute_pool.timeout_min' = 5
+  - name: my_function_source
+    config:
+      materialized: function_source
+      parameters:
+        file: '@/path/to/my-functions.jar'
+        description: 'Custom utility functions'
+  - name: my_descriptor_source
+    config:
+      materialized: descriptor_source
+      parameters:
+        file: '@/path/to/schemas.desc'
+        description: 'Protocol buffer schemas for data structures'
+  - name: my_custom_function
+    config:
+      materialized: function
+      parameters:
+        args:
+          - name: input_text
+            type: VARCHAR
+        returns: VARCHAR
+        language: JAVA
+        source.name: 'my_function_source'
+        class.name: 'com.example.TextProcessor'
 ```
 
 #### Unmanaged example
@@ -245,70 +271,93 @@ models:
 ```yaml
 version: 2
 sources:
-  - name: example # source name, not used in DeltaStream but required by dbt for the {{ source("example", "...") }}
-    tables:
-      - name: my_kafka_store
-        config:
-          materialized: store
-          parameters:
-            type: KAFKA # required
-            access_region: "AWS us-east-1"
-            uris: "kafka.broker1.url:9092,kafka.broker2.url:9092"
-            tls.ca_cert_file: "@/certs/us-east-1/self-signed-kafka-ca.crt"
-      - name: ps_store
-        config:
-          materialized: store
-          parameters:
-            type: POSTGRESQL # required
-            access_region: "AWS us-east-1"
-            uris: "postgresql://mystore.com:5432/demo"
-            postgres.username: "user"
-            postgres.password: "password"
-      - name: user_events_stream
-        config:
-          materialized: stream
-          columns:
-            event_time:
-              type: TIMESTAMP
-              not_null: true
-            user_id:
-              type: VARCHAR
-            action:
-              type: VARCHAR
-          parameters:
-            topic: "user_events"
-            value.format: "json"
-            key.format: "primitive"
-            key.type: "VARCHAR"
-            timestamp: "event_time"
-      - name: order_changes
-        config:
-          materialized: changelog
-          columns:
-            order_id:
-              type: VARCHAR
-              not_null: true
-            status:
-              type: VARCHAR
-            updated_at:
-              type: TIMESTAMP
-          primary_key:
-            - order_id
-          parameters:
-            topic: "order_updates"
-            value.format: "json"
-      - name: pv_kinesis
-        config:
-          materialized: entity
-          store: kinesis_store
-          parameters:
-            "kinesis.shards": 3
-      - name: my_compute_pool
-        config:
-          materialized: compute_pool
-          parameters:
-            "compute_pool.size": "small"
-            "compute_pool.timeout_min": 5
+- name: example # source name, not used in DeltaStream but required by dbt for the {{ source("example", "...") }}
+  tables:
+  - name: my_kafka_store
+    config:
+      materialized: store
+      parameters:
+        type: KAFKA # required
+        access_region: "AWS us-east-1"
+        uris: "kafka.broker1.url:9092,kafka.broker2.url:9092"
+        tls.ca_cert_file: "@/certs/us-east-1/self-signed-kafka-ca.crt"
+  - name: ps_store
+    config:
+      materialized: store
+      parameters:
+        type: POSTGRESQL # required
+        access_region: "AWS us-east-1"
+        uris: "postgresql://mystore.com:5432/demo"
+        postgres.username: "user"
+        postgres.password: "password"
+  - name: user_events_stream
+    config:
+      materialized: stream
+      columns:
+        event_time:
+          type: TIMESTAMP
+          not_null: true
+        user_id:
+          type: VARCHAR
+        action:
+          type: VARCHAR
+      parameters:
+        topic: 'user_events'
+        value.format: 'json'
+        key.format: 'primitive'
+        key.type: 'VARCHAR'
+        timestamp: 'event_time'
+  - name: order_changes
+    config:
+      materialized: changelog
+      columns:
+        order_id:
+          type: VARCHAR
+          not_null: true
+        status:
+          type: VARCHAR
+        updated_at:
+          type: TIMESTAMP
+      primary_key:
+        - order_id
+      parameters:
+        topic: 'order_updates'
+        value.format: 'json'
+  - name: pv_kinesis
+    config:
+      materialized: entity
+      store: kinesis_store
+      parameters:
+        'kinesis.shards': 3
+  - name: my_compute_pool
+    config:
+      materialized: compute_pool
+      parameters:
+        'compute_pool.size': 'small'
+        'compute_pool.timeout_min': 5
+  - name: my_function_source
+    config:
+      materialized: function_source
+      parameters:
+        file: '@/path/to/my-functions.jar'
+        description: 'Custom utility functions'
+  - name: my_descriptor_source
+    config:
+      materialized: descriptor_source
+      parameters:
+        file: '@/path/to/schemas.desc'
+        description: 'Protocol buffer schemas for data structures'
+  - name: my_custom_function
+    config:
+      materialized: function
+      parameters:
+        args:
+          - name: input_text
+            type: VARCHAR
+        returns: VARCHAR
+        language: JAVA
+        source.name: 'my_function_source'
+        class.name: 'com.example.TextProcessor'
 ```
 
 ### SQL Models
@@ -383,6 +432,114 @@ SELECT
 FROM {{ ref('purchase_events') }}
 GROUP BY product_id
 ```
+
+## Function and Source Materializations
+
+DeltaStream supports user-defined functions (UDFs) and their dependencies through specialized materializations.
+
+### Automatic Retry for Function Creation
+
+When creating functions that depend on function sources, the adapter automatically handles timing issues with an intelligent retry mechanism:
+
+- **Automatic Detection**: Function creation statements are automatically detected and retry logic is applied
+- **SQLState-Based Retry**: Uses proper SQLState codes (3D018) instead of text matching for reliable error detection
+- **Exponential Backoff**: Starts with 2-second intervals, increasing by 1.5x each retry (capped at 10 seconds)
+- **Configurable Timeout**: Default 30-second timeout with clear error messages
+- **Transparent Operation**: No changes needed to existing code - retry logic is applied automatically
+
+### File Attachment Support
+
+The adapter provides seamless file attachment for function sources and descriptor sources:
+
+- **Standardized Interface**: Common file handling logic for both function sources and descriptor sources
+- **Path Resolution**: Supports both absolute paths and relative paths (including `@` syntax for project-relative paths)
+- **Automatic Validation**: Files are validated for existence and accessibility before attachment
+- **Thread-Safe Storage**: Uses connection thread-local storage for pending file management
+
+### Function Source
+
+Creates a function source from a JAR file containing Java functions:
+
+```sql
+{{ config(
+    materialized='function_source',
+    parameters={
+        'file': '@/path/to/my-functions.jar',
+        'description': 'Custom utility functions'
+    }
+) }}
+
+SELECT 1 as placeholder
+```
+
+### Descriptor Source
+
+Creates a descriptor source from compiled protocol buffer descriptor files:
+
+```sql
+{{ config(
+    materialized='descriptor_source',
+    parameters={
+        'file': '@/path/to/schemas.desc',
+        'description': 'Protocol buffer schemas for data structures'
+    }
+) }}
+
+SELECT 1 as placeholder
+```
+
+**Note**: Descriptor sources require compiled `.desc` files, not raw `.proto` files. Compile your protobuf schemas using:
+```bash
+protoc --descriptor_set_out=schemas/my_schemas.desc schemas/my_schemas.proto
+```
+
+### Function
+
+Creates a user-defined function that references a function source:
+
+```sql
+{{ config(
+    materialized='function',
+    parameters={
+        'args': [
+            {'name': 'input_text', 'type': 'VARCHAR'}
+        ],
+        'returns': 'VARCHAR',
+        'language': 'JAVA',
+        'source.name': 'my_function_source',
+        'class.name': 'com.example.TextProcessor'
+    }
+) }}
+
+SELECT 1 as placeholder
+```
+
+**Note**: Functions, function sources, and descriptor sources are resources, not relations. They are managed independently and can be referenced by name in your streaming queries.
+
+## Troubleshooting
+
+### Function Source Readiness
+
+If you encounter "function source is not ready" errors when creating functions:
+
+1. **Automatic Retry**: The adapter automatically retries function creation with exponential backoff
+2. **Timeout Configuration**: The default 30-second timeout can be extended if needed for large JAR files
+3. **Dependency Order**: Ensure function sources are created before dependent functions
+4. **Manual Retry**: If automatic retry fails, wait a few minutes and retry the operation
+
+### File Attachment Issues
+
+For problems with file attachments in function sources and descriptor sources:
+
+1. **File Paths**: Use `@/path/to/file` syntax for project-relative paths
+2. **File Types**:
+  - Function sources require `.jar` files
+  - Descriptor sources require compiled `.desc` files (not `.proto`)
+3. **File Validation**: The adapter validates file existence before attempting attachment
+4. **Compilation**: For descriptor sources, ensure protobuf files are compiled:
+   ```bash
+   protoc --descriptor_set_out=output.desc input.proto
+   ```
 
 ## Query Macros
 
