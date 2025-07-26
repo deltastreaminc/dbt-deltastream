@@ -1,0 +1,76 @@
+# dbt-deltastream Cursor Rules
+
+## Project Overview
+This is a dbt adapter for DeltaStream, a streaming processing engine based on Apache Flink.
+
+## Code Style and Structure
+
+### General Principles
+- Write concise, technical Python, SQL, and Jinja code with accurate examples
+- Use functional and declarative programming patterns; avoid classes when possible
+- Prefer iteration and modularization over code duplication
+- Use descriptive variable names with auxiliary verbs (e.g., `is_loading`, `has_error`)
+
+### Language-Specific Guidelines
+
+#### Python
+- Follow functional programming patterns
+- Use type hints for function parameters and return values
+- Prefer composition over inheritance
+- Keep functions small and focused on single responsibilities
+
+#### SQL/Jinja
+- Use clear, descriptive naming for macros and variables
+- Structure Jinja templates for readability
+- Follow dbt best practices for macro development
+
+## Project Structure
+The repository follows this structure:
+```
+.
+├── src
+│   └── dbt
+│       ├── adapters
+│       │   └── deltastream    # Python adapter implementation
+│       └── include
+│           └── deltastream    # Jinja templates and macros
+└── tests                      # Unit and integration tests
+    └── adapter               # Adapter-specific tests
+```
+
+## Build and Dependency Management
+- Use `uv` for all dependency management operations
+- Dependencies are specified in `pyproject.toml`
+- Virtual environment is located in `./.venv`
+
+### Common Commands
+- Install dependencies: `uv sync`
+- Add new dependencies: `uv add <package>`
+- Run tests: `uv run pytest <path_to_test>`
+- Run specific test file: `uv run pytest tests/test_specific.py`
+
+## File Naming Conventions
+- Python files: snake_case
+- Test files: prefix with `test_`
+- SQL/Jinja macros: snake_case with descriptive names
+- Configuration files: follow dbt conventions
+
+## Testing Guidelines
+- Write unit tests for all adapter functionality
+- Place tests in appropriate subdirectories under `tests/`
+- Use descriptive test function names that explain the scenario being tested
+- Mock external dependencies appropriately
+
+## Development Workflow
+1. Make changes to relevant files in `src/dbt/adapters/deltastream/` or `src/dbt/include/deltastream/`
+2. Write or update corresponding tests
+3. Run tests with `uv run pytest`
+4. Run linting with `uv run ruff check --fix`
+5. Run linting with `uv run ruff format`
+6. Run type checking with `uv run mypy`
+7. Ensure all tests pass before committing
+
+## Additional Context
+- This adapter integrates with DeltaStream's streaming SQL capabilities
+- Follow dbt adapter development patterns and conventions
+- Consider streaming-specific requirements when implementing features 

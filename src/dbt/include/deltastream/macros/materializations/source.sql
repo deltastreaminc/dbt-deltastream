@@ -4,7 +4,7 @@
   {%- set materialized = node.config.get('materialized', 'stream') -%}
 
   {# Check if it's a resource type #}
-  {%- set is_resource = materialized in ['compute_pool', 'store', 'entity', 'function_source', 'descriptor_source', 'function'] -%}
+  {%- set is_resource = materialized in ['compute_pool', 'store', 'entity', 'function_source', 'descriptor_source', 'function', 'schema_registry'] -%}
 
   {%- if is_resource %}
     {%- set resource = adapter.create_deltastream_resource(materialized, identifier, parameters) -%}
@@ -12,7 +12,7 @@
     {%- set has_existing_resource = existing_resource is not none -%}
 
     {# Define which resources can be updated vs need to be recreated #}
-    {%- set updatable_resources = ['compute_pool', 'store', 'entity'] -%}
+    {%- set updatable_resources = ['compute_pool', 'store', 'entity', 'schema_registry'] -%}
     {%- set recreatable_resources = ['function_source', 'descriptor_source', 'function'] -%}
 
     {%- set source_sql %}
@@ -24,6 +24,8 @@
             {{ deltastream__update_store(resource, parameters) }}
           {%- elif materialized == 'entity' %}
             {{ deltastream__update_entity(resource, parameters) }}
+          {%- elif materialized == 'schema_registry' %}
+            {{ deltastream__update_schema_registry_filtered(resource, parameters) }}
           {%- endif %}
         {%- else %}
           {%- if materialized == 'compute_pool' %}
@@ -32,6 +34,8 @@
             {{ deltastream__create_store(resource, parameters) }}
           {%- elif materialized == 'entity' %}
             {{ deltastream__create_entity(resource, parameters) }}
+          {%- elif materialized == 'schema_registry' %}
+            {{ deltastream__create_schema_registry(resource, parameters) }}
           {%- endif %}
         {%- endif %}
       {%- elif materialized in recreatable_resources %}
@@ -87,7 +91,7 @@
         {%- set primary_key = node.config.primary_key %}
         {{ deltastream__create_changelog(target_relation, node.columns, parameters, primary_key) }}
       {%- else %}
-        {{ exceptions.raise_compiler_error("Unsupported materialization type '" ~ materialized ~ "'. Supported types are: stream, store, database, compute_pool, changelog, entity") }}
+        {{ exceptions.raise_compiler_error("Unsupported materialization type '" ~ materialized ~ "'. Supported types are: stream, store, database, compute_pool, changelog, entity, function_source, descriptor_source, function, schema_registry") }}
       {%- endif %}
     {%- endset %}
   {% endif %}

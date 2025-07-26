@@ -1,8 +1,12 @@
 {% materialization entity, adapter='deltastream' %}
   {%- set identifier = model['alias'] -%}
   {%- set parameters = config.get('parameters', {}) %}
-  {%- set store = config.get('store', none) %}
+  {%- set store = parameters.get('store', None) %}
   {%- set resource = adapter.create_deltastream_resource('entity', identifier, parameters) -%}
+  {%- set target_relation = api.Relation.create(identifier=identifier,
+                                                schema=schema,
+                                                database=database,
+                                                type='entity') -%}
 
   {{ run_hooks(pre_hooks) }}
 
@@ -18,5 +22,5 @@
 
   {{ run_hooks(post_hooks) }}
 
-  {{ return({'resources': [resource]}) }}
+  {{ return({'relations': [target_relation]}) }}
 {% endmaterialization %}
