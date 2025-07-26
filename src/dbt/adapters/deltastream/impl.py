@@ -614,6 +614,7 @@ class DeltastreamAdapter(BaseAdapter):
                 return None
             raise
 
+    @available
     def get_schema_registry(self, identifier: str) -> Optional["DeltastreamResource"]:
         """Get a schema registry configuration if it exists"""
         try:
