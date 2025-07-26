@@ -16,6 +16,7 @@ A [dbt](https://www.getdbt.com/) adapter for [DeltaStream](https://deltastream.i
   - `function`: User-defined functions (UDFs)
   - `function_source`: Function source for Java JAR files
   - `descriptor_source`: Descriptor source for protocol buffer schemas
+  - `schema_registry`: Schema registry connection for Confluent Schema Registry or similar
 
 ## Installation
 
@@ -264,6 +265,17 @@ models:
         language: JAVA
         source.name: 'my_function_source'
         class.name: 'com.example.TextProcessor'
+  - name: my_schema_registry
+    config:
+      materialized: schema_registry
+      parameters:
+        type: "CONFLUENT",
+        access_region: "AWS us-east-1",
+        uris: "https://url.to.schema.registry.listener:8081",
+        'confluent.username': 'fake_username',
+        'confluent.password': 'fake_password',
+        'tls.client.cert_file': '@/path/to/tls/client_cert_file',
+        'tls.client.key_file': '@/path/to/tls_key'
 ```
 
 #### Unmanaged example
@@ -358,6 +370,17 @@ sources:
         language: JAVA
         source.name: 'my_function_source'
         class.name: 'com.example.TextProcessor'
+  - name: my_schema_registry
+    config:
+      materialized: schema_registry
+      parameters:
+        type: "CONFLUENT",
+        access_region: "AWS us-east-1",
+        uris: "https://url.to.schema.registry.listener:8081",
+        'confluent.username': 'fake_username',
+        'confluent.password': 'fake_password',
+        'tls.client.cert_file': '@/path/to/tls/client_cert_file',
+        'tls.client.key_file': '@/path/to/tls_key'
 ```
 
 ### SQL Models

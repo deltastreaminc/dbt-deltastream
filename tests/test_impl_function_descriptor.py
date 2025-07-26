@@ -500,6 +500,25 @@ class TestResourceCreationIntegration:
         ):
             adapter.create_deltastream_resource("unsupported_type", "test_id", {})
 
+    def test_create_deltastream_resource_schema_registry(self, adapter):
+        """Test creating DeltaStream schema registry resource."""
+        parameters = {
+            "type": "CONFLUENT_CLOUD",
+            "access_region": "AWS us-east-1",
+            "uris": "https://abcd-efghi.us-east-2.aws.confluent.cloud",
+            "confluent_cloud.key": "fake_key",
+            "confluent_cloud.secret": "fake_secret",
+        }
+
+        result = adapter.create_deltastream_resource(
+            "schema_registry", "confluent_schema_registry", parameters
+        )
+
+        assert result is not None
+        assert result.identifier == "confluent_schema_registry"
+        assert result.resource_type == "schema_registry"
+        assert result.parameters == parameters
+
     def test_get_resource_function_source(self, adapter):
         """Test getting resource for function source."""
         # Mock get_function_source

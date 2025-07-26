@@ -147,6 +147,40 @@
   ;
 {%- endmacro %}
 
+{% macro deltastream__create_schema_registry(resource, parameters) -%}
+  create schema_registry {{ adapter.quote(resource.identifier) }}
+  {{ deltastream__with_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__update_schema_registry(resource, parameters) -%}
+  update schema_registry {{ adapter.quote(resource.identifier) }}
+  {{ deltastream__with_parameters(parameters) }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__drop_schema_registry(resource, parameters) -%}
+  drop schema_registry {{ adapter.quote(resource.identifier) }}
+  ;
+{%- endmacro %}
+
+{% macro deltastream__filter_update_parameters(parameters) -%}
+  {%- set filtered_params = {} -%}
+  {%- for key, value in parameters.items() -%}
+    {%- if key not in ('type', 'access_region') -%}
+      {%- set _ = filtered_params.update({key: value}) -%}
+    {%- endif -%}
+  {%- endfor -%}
+  {{ return(filtered_params) }}
+{%- endmacro %}
+
+{% macro deltastream__update_schema_registry_filtered(resource, parameters) -%}
+  {%- set filtered_params = deltastream__filter_update_parameters(parameters) -%}
+  update schema_registry {{ adapter.quote(resource.identifier) }}
+  {{ deltastream__with_parameters(filtered_params) }}
+  ;
+{%- endmacro %}
+
 {% macro deltastream__with_parameters(parameters) -%}
   {% if parameters.items() | length > 0 %}
     with (
