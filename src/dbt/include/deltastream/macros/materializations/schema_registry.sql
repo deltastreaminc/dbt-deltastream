@@ -11,7 +11,6 @@
 
   {% call statement('main') -%}
     {% if adapter.get_schema_registry(identifier) is not none %}
-      {{ log('Updating schema registry: ' ~ identifier ~ ' (excluding type and access_region)') }}
       {{ deltastream__update_schema_registry_filtered(resource, parameters) }}
       {{ log('Updated schema registry: ' ~ identifier) }}
     {% else %}

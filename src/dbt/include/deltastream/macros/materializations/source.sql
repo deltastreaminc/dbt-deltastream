@@ -86,7 +86,7 @@
       {%- if materialized == 'stream' %}
         {{ deltastream__create_stream(target_relation, node.columns, parameters) }}
       {%- elif materialized == 'database' %}
-        {{ deltastream__create_database(target_relation) }}
+        {{ deltastream__create_database(identifier) }}
       {%- elif materialized == 'changelog' %}
         {%- set primary_key = node.config.primary_key %}
         {{ deltastream__create_changelog(target_relation, node.columns, parameters, primary_key) }}
