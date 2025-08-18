@@ -293,7 +293,7 @@ class DeltastreamAdapter(BaseAdapter):
     def create_deltastream_resource(
         self, resource_type: str, identifier: str, parameters: Dict[str, Any]
     ) -> Optional["DeltastreamResource"]:
-        """Create a DeltaStream resource (e.g., compute pool, store, entity, function, function_source, descriptor_source)"""
+        """Create a DeltaStream resource (e.g., compute pool, store, entity, function, function_source, descriptor_source, schema_registry)"""
         try:
             if resource_type in [
                 "compute_pool",
@@ -302,6 +302,7 @@ class DeltastreamAdapter(BaseAdapter):
                 "function",
                 "function_source",
                 "descriptor_source",
+                "schema_registry",
             ]:
                 return self.DeltastreamResource(identifier, resource_type, parameters)
             else:
@@ -432,6 +433,8 @@ class DeltastreamAdapter(BaseAdapter):
             return self.get_function_source(identifier)
         elif resource_type == "descriptor_source":
             return self.get_descriptor_source(identifier)
+        elif resource_type == "schema_registry":
+            return self.get_schema_registry(identifier)
         else:
             raise dbt_common.exceptions.DbtRuntimeError(
                 f"Unsupported resource type: {resource_type}"
@@ -604,6 +607,39 @@ class DeltastreamAdapter(BaseAdapter):
                         if clean_name == identifier:
                             return self.DeltastreamResource(
                                 identifier, "descriptor_source", {}
+                            )
+            return None
+        except SQLError as e:
+            if e.code == SqlState.SQL_STATE_INVALID_RELATION:
+                return None
+            raise
+
+    @available
+    def get_schema_registry(self, identifier: str) -> Optional["DeltastreamResource"]:
+        """Get a schema registry configuration if it exists"""
+        try:
+            # List all schema registries and check if the requested one exists
+            (_, table) = self.connections.query("LIST SCHEMA_REGISTRIES;")
+            if table and len(table) > 0:
+                # Check if our schema registry exists in the list
+                for row in table:
+                    row_name = None
+                    if hasattr(row, "Name"):
+                        row_name = row.Name
+                    elif isinstance(row, dict) and "Name" in row:
+                        row_name = row["Name"]
+                    elif hasattr(row, "__getitem__"):
+                        try:
+                            row_name = row[0]  # Try first column
+                        except (IndexError, KeyError):
+                            continue
+
+                    if row_name:
+                        # Strip quotes from the name for comparison
+                        clean_name = self._strip_quotes(row_name)
+                        if clean_name == identifier:
+                            return self.DeltastreamResource(
+                                identifier, "schema_registry", {}
                             )
             return None
         except SQLError as e:

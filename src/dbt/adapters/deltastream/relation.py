@@ -19,9 +19,18 @@ class DeltastreamRelationType(StrEnum):
     Table = "table"
     View = "view"
 
-    # DeltasSream specific materialization types.
+    # DeltaStream specific materialization types.
     Stream = "stream"
     Changelog = "changelog"
+
+    # DeltaStream resource types.
+    Store = "store"
+    ComputePool = "compute_pool"
+    Entity = "entity"
+    Function = "function"
+    FunctionSource = "function_source"
+    DescriptorSource = "descriptor_source"
+    SchemaRegistry = "schema_registry"
 
 
 @dataclass(frozen=True, eq=False, repr=False)
@@ -76,3 +85,31 @@ class DeltastreamRelation(BaseRelation):
     @property
     def is_view(self) -> bool:
         return self.type == DeltastreamRelationType.View
+
+    @property
+    def is_store(self) -> bool:
+        return self.type == DeltastreamRelationType.Store
+
+    @property
+    def is_compute_pool(self) -> bool:
+        return self.type == DeltastreamRelationType.ComputePool
+
+    @property
+    def is_entity(self) -> bool:
+        return self.type == DeltastreamRelationType.Entity
+
+    @property
+    def is_function(self) -> bool:
+        return self.type == DeltastreamRelationType.Function
+
+    @property
+    def is_function_source(self) -> bool:
+        return self.type == DeltastreamRelationType.FunctionSource
+
+    @property
+    def is_descriptor_source(self) -> bool:
+        return self.type == DeltastreamRelationType.DescriptorSource
+
+    @property
+    def is_schema_registry(self) -> bool:
+        return self.type == DeltastreamRelationType.SchemaRegistry

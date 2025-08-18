@@ -2,6 +2,10 @@
   {%- set identifier = model['alias'] -%}
   {%- set parameters = config.get('parameters', {}) %}
   {%- set resource = adapter.create_deltastream_resource('store', identifier, parameters) -%}
+  {%- set target_relation = api.Relation.create(identifier=identifier,
+                                                schema=schema,
+                                                database=database,
+                                                type='store') -%}
 
   {{ run_hooks(pre_hooks) }}
 
@@ -17,5 +21,5 @@
 
   {{ run_hooks(post_hooks) }}
 
-  {{ return({'resources': [resource]}) }}
+  {{ return({'relations': [target_relation]}) }}
 {% endmaterialization %}
