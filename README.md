@@ -10,6 +10,7 @@ A [dbt](https://www.getdbt.com/) adapter for [DeltaStream](https://deltastream.i
   - `materialized_view`: Continuously updated view
   - `stream`: Pure streaming transformation
   - `changelog`: Change data capture (CDC) stream
+  - `seed`: Load CSV data into existing entities
   - `store`: External system connection (Kafka, PostgreSQL, etc.)
   - `entity`: Entity definition in a store
   - `database`: Database definition
@@ -66,7 +67,7 @@ The following parameters are supported in the profile configuration:
 
 ### Optional Parameters
 
-- `url`: DeltaStream API URL (default: https://api.deltastream.io/v2)
+- `url`: DeltaStream API URL (default: <https://api.deltastream.io/v2>)
 - `timezone`: Timezone for operations (default: UTC)
 - `session_id`: Custom session identifier for debugging
 - `compute_pool`: Compute pool name to be used if any else use the default compute pool (for models that require one)
@@ -456,6 +457,78 @@ FROM {{ ref('purchase_events') }}
 GROUP BY product_id
 ```
 
+## Seeds
+
+Load CSV data into existing DeltaStream entities using the `seed` materialization. Unlike traditional dbt seeds that create new tables, DeltaStream seeds insert data into pre-existing entities.
+
+### Key Features
+
+- **Target Existing Entities**: Seeds insert data into existing entities rather than creating new ones
+- **Flexible Store Support**: Can target entities with or without store specifications
+- **Batch Processing**: Efficiently processes CSV data in configurable batch sizes
+- **WITH Parameters**: Support for entity-specific parameters via WITH clauses
+
+### Configuration
+
+Seeds must be configured in YAML with the following properties:
+
+**Required:**
+
+- `entity`: The name of the target entity to insert data into
+
+**Optional:**
+
+- `store`: The name of the store containing the entity (omit if entity is not in a store)
+- `with_params`: A dictionary of parameters for the WITH clause
+- `quote_columns`: Control which columns get quoted. Default: `false` (no columns quoted). Can be:
+  - `true`: Quote all columns
+  - `false`: Quote no columns (default)
+  - `string`: If set to `'*'`, quote all columns
+  - `list`: List of column names to quote
+
+### YAML Configuration Examples
+
+**With Store (quoting enabled):**
+
+```yaml
+# seeds.yml
+version: 2
+
+seeds:
+  - name: user_data_with_store_quoted
+    config:
+      entity: 'user_events'
+      store: 'kafka_store'
+      with_params:
+        retention: '1 day'
+        partitioned: true
+      quote_columns: true  # Quote all columns
+```
+
+**Without Store (default - no quoting):**
+
+```yaml
+# seeds.yml
+version: 2
+
+seeds:
+  - name: user_data_without_store_no_quotes
+    config:
+      entity: 'standalone_entity'
+      with_params:
+        retention: '1 day'
+      # quote_columns defaults to false (no columns quoted)
+```
+
+### Usage
+
+1. Place CSV files in your `seeds/` directory
+2. Configure seeds in YAML with the required `entity` parameter
+3. Optionally specify `store` if the entity is in a store
+4. Run `dbt seed` to load the data
+
+**Important**: The target entity must already exist in DeltaStream before running seeds. Seeds only insert data, they do not create entities.
+
 ## Function and Source Materializations
 
 DeltaStream supports user-defined functions (UDFs) and their dependencies through specialized materializations.
@@ -512,6 +585,7 @@ SELECT 1 as placeholder
 ```
 
 **Note**: Descriptor sources require compiled `.desc` files, not raw `.proto` files. Compile your protobuf schemas using:
+
 ```bash
 protoc --descriptor_set_out=schemas/my_schemas.desc schemas/my_schemas.proto
 ```
@@ -556,10 +630,13 @@ For problems with file attachments in function sources and descriptor sources:
 
 1. **File Paths**: Use `@/path/to/file` syntax for project-relative paths
 2. **File Types**:
-  - Function sources require `.jar` files
-  - Descriptor sources require compiled `.desc` files (not `.proto`)
+
+- Function sources require `.jar` files
+- Descriptor sources require compiled `.desc` files (not `.proto`)
+
 3. **File Validation**: The adapter validates file existence before attempting attachment
 4. **Compilation**: For descriptor sources, ensure protobuf files are compiled:
+
    ```bash
    protoc --descriptor_set_out=output.desc input.proto
    ```
@@ -609,7 +686,6 @@ ID | Name | Version | IntendedState | ActualState | Query | Owner | CreatedAt | 
 
 This macro is useful for debugging, monitoring, and operational tasks. It leverages DeltaStream's `LIST QUERIES;` SQL command and prints the results in a readable table format.
 
-
 ### Restart a Specific Query
 
 Use the `restart_query` macro to restart a failed query by its ID:
@@ -625,7 +701,6 @@ dbt run-operation describe_query --args '{query_id: "<QUERY_ID>"}'
 ```
 
 This will display the query's current state and any error information to help you understand why the query failed.
-
 
 ## Application Macro
 

@@ -87,3 +87,9 @@ install.sh
 
 # uv lock files
 uv.lock
+
+# env files
+.env
+
+# temp
+/temp

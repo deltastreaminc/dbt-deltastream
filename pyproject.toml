@@ -21,10 +21,10 @@ classifiers = [
 ]
 
 dependencies = [
-    "deltastream-connector >= 0.2.0",
-    "dbt-core>=1.9.2",
+    "deltastream-connector >= 0.3",
+    "dbt-core>=1.10",
     "dbt-common>=1.10,<2.0",
-    "dbt-adapters>=1.13.2",
+    "dbt-adapters>=1.16",
     "agate",
 ]
 

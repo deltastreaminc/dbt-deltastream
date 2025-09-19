@@ -70,13 +70,13 @@
 {%- endmacro %}
 
 {% macro deltastream__create_entity(resource, parameters, store) -%}
-  create entity {{ resource.identifier }}{% if store %} in store {{ store }}{% endif %}
+  create entity "{{ resource.identifier }}"{% if store %} in store "{{ store }}"{% endif %}
   {{ deltastream__with_parameters(parameters) }}
   ;
 {%- endmacro %}
 
 {% macro deltastream__update_entity(resource, parameters, store) -%}
-  update entity {{ resource.identifier }}{% if store %} in store {{ store }}{% endif %}
+  update entity "{{ resource.identifier }}"{% if store %} in store "{{ store }}"{% endif %}
   {{ deltastream__with_parameters(parameters) }}
   ;
 {%- endmacro %}
@@ -191,6 +191,8 @@
       '{{ parameter }}' = "{{ value }}"{% if not loop.last %},{% endif %}
       {%- elif value is number %}
       '{{ parameter }}' = {{ value }}{% if not loop.last %},{% endif %}
+      {%- elif value is boolean %}
+      '{{ parameter }}' = '{{ value | lower }}'{% if not loop.last %},{% endif %}
       {%- else %}
       '{{ parameter }}' = '{{ value }}'{% if not loop.last %},{% endif %}
       {%- endif %}
@@ -261,13 +263,10 @@
 {% endmacro %}
 
 {% macro deltastream__apply_grants(relation, grant_config, should_revoke) -%}
-  {{ exceptions.raise_compiler_error(
-        """
-        dbt-deltastream does not implement the grants configuration.
-
-        If this feature is important to you, please reach out!
-        """
-    )}}
+  {# DeltaStream does not support grants, so this is a no-op #}
+  {% if grant_config %}
+    {{ log("DeltaStream does not support grants configuration. Skipping grant application.", info=True) }}
+  {% endif %}
 {% endmacro %}
 
 {% macro deltastream__sql_contains_select(sql) -%}

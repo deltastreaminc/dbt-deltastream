@@ -1,4 +1,4 @@
-# dbt-deltastream Cursor Rules
+# dbt-deltastream
 
 ## Project Overview
 This is a dbt adapter for DeltaStream, a streaming processing engine based on Apache Flink.
