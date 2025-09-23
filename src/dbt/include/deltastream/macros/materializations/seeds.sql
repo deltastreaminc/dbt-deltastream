@@ -29,16 +29,12 @@
     ) }}
   {%- endif -%}
 
-  -- Check if entity exists and create if needed
+  -- Check if entity exists and fail if it doesn't
   {% if adapter.get_entity(entity, store) is none %}
-    {%- set with_params = config.get('with_params', {}) or model['config'].get('with_params', {}) -%}
-    {%- set resource = adapter.create_deltastream_resource('entity', entity, with_params) -%}
-    
-    {% call statement('create_entity') -%}
-      {{ deltastream__create_entity(resource, with_params, store) }}
-    {%- endcall %}
-    
-    {{ log('Created entity: ' ~ entity ~ ((' in store ' ~ store) if store else '')) }}
+    {{ exceptions.raise_compiler_error(
+        "Entity '" ~ entity ~ "'" ~ ((" in store '" ~ store ~ "'") if store else "") ~ 
+        " does not exist. Please create the entity first before seeding data into it."
+    ) }}
   {% endif %}
 
   -- build model

@@ -500,24 +500,9 @@ seeds:
       entity: 'user_events'
       store: 'kafka_store'
       with_params:
-        retention: '1 day'
+        kafka.topic.retention.ms: '86400000'
         partitioned: true
       quote_columns: true  # Quote all columns
-```
-
-**Without Store (default - no quoting):**
-
-```yaml
-# seeds.yml
-version: 2
-
-seeds:
-  - name: user_data_without_store_no_quotes
-    config:
-      entity: 'standalone_entity'
-      with_params:
-        retention: '1 day'
-      # quote_columns defaults to false (no columns quoted)
 ```
 
 ### Usage
