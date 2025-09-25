@@ -71,8 +71,9 @@
 
 {# Helper macro to generate INSERT statement for a record #}
 {% macro deltastream__generate_insert_statement(record, entity, store, with_params, include_with_params) %}
+  {% set json_value = record | tojson | replace("'", "''") %}
   {% set insert_sql -%}
-INSERT INTO ENTITY "{{ entity }}"{% if store %} IN STORE "{{ store }}"{% endif %} VALUE('{{ record | tojson | replace("'", "''") }}'){% if include_with_params %}
+INSERT INTO ENTITY "{{ entity }}"{% if store %} IN STORE "{{ store }}"{% endif %} VALUE('{{ json_value }}'){% if include_with_params %}
 {{ deltastream__with_parameters(with_params) }}{% else %};{% endif %}
   {%- endset %}
   {{ return(insert_sql) }}
