@@ -440,6 +440,7 @@ class DeltastreamAdapter(BaseAdapter):
                 f"Unsupported resource type: {resource_type}"
             )
 
+    @available
     def get_compute_pool(self, identifier: str) -> Optional["DeltastreamResource"]:
         """Get a compute pool configuration if it exists"""
         try:
@@ -457,37 +458,46 @@ class DeltastreamAdapter(BaseAdapter):
                 return None
             raise
 
+    @available
     def get_store(self, identifier: str) -> Optional["DeltastreamResource"]:
         """Get a store configuration if it exists"""
         try:
-            (_, table) = self.connections.query(f"DESCRIBE STORE {identifier};")
+            (_, table) = self.connections.query(f'DESCRIBE STORE "{identifier}";')
             if table and len(table) > 0:
                 return self.DeltastreamResource(identifier, "store", {})
             return None
         except SQLError as e:
-            if e.code == SqlState.SQL_STATE_INVALID_RELATION:
+            if e.code in [
+                SqlState.SQL_STATE_INVALID_RELATION,
+                SqlState.SQL_STATE_INVALID_STORE,
+            ]:  # store not found
                 return None
             raise
 
+    @available
     def get_entity(
         self, identifier: str, store: Optional[str] = None
     ) -> Optional["DeltastreamResource"]:
         """Get an entity configuration if it exists"""
         try:
             if store:
-                sql = f"DESCRIBE ENTITY {identifier} IN STORE {store};"
+                sql = f'DESCRIBE ENTITY "{identifier}" IN STORE "{store}";'
             else:
-                sql = f"DESCRIBE ENTITY {identifier};"
+                sql = f'DESCRIBE ENTITY "{identifier}";'
             (_, table) = self.connections.query(sql)
             if table and len(table) > 0:
                 parameters = {"store": store} if store else {}
                 return self.DeltastreamResource(identifier, "entity", parameters)
             return None
         except SQLError as e:
-            if e.code == SqlState.SQL_STATE_INVALID_RELATION:
+            if e.code in [
+                SqlState.SQL_STATE_INVALID_RELATION,
+                SqlState.SQL_STATE_INVALID_PARAMETER,
+            ]:  # entity/topic not found
                 return None
             raise
 
+    @available
     def get_function(
         self, identifier: str, parameters: Dict[str, Any]
     ) -> Optional["DeltastreamResource"]:
@@ -533,6 +543,7 @@ class DeltastreamAdapter(BaseAdapter):
                 return None
             raise
 
+    @available
     def get_function_source(self, identifier: str) -> Optional["DeltastreamResource"]:
         """Get a function source configuration if it exists"""
         try:
@@ -582,6 +593,7 @@ class DeltastreamAdapter(BaseAdapter):
                 return None
             raise
 
+    @available
     def get_descriptor_source(self, identifier: str) -> Optional["DeltastreamResource"]:
         """Get a descriptor source configuration if it exists"""
         try:
