@@ -62,12 +62,6 @@ packages = ["src/dbt"]
 only-include = ["src"]
 
 [tool.pytest.ini_options]
-addopts = [
-    "--import-mode=importlib",
-    "--cov=src",
-    "--cov-report=term-missing",
-    "--cov-report=html"
-]
 pythonpath = [
     "."
 ]
@@ -79,6 +73,22 @@ filterwarnings = [
     "ignore::DeprecationWarning:dbt_common.events.*:",
     # We can't fix the underlying library warnings, so we'll ignore them for now
     "ignore:datetime.datetime.utcnow.*:DeprecationWarning"
+]
+markers = [
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
+    "unit: marks tests as unit tests",
+    "basic: marks tests as basic dbt adapter functionality tests",
+    "optional: marks tests as optional functionality tests",
+    "custom: marks tests as custom deltastream-specific tests",
+]
+addopts = [
+    "-v",
+    "--tb=short", 
+    "--strict-markers",
+    "--import-mode=importlib",
+    "--cov=src",
+    "--cov-report=term-missing",
+    "--cov-report=html",
 ]
 
 [tool.pylint]
