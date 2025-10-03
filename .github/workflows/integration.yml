@@ -47,9 +47,22 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install dependencies
+        run: make install
+
+      - name: Validate integration secrets
         run: |
-          uv sync --all-groups
+          missing=0
+          for var in DELTASTREAM_API_TOKEN DELTASTREAM_ORGANIZATION_ID DELTASTREAM_DATABASE DELTASTREAM_SCHEMA DELTASTREAM_URL; do
+            if [ -z "${!var}" ]; then
+              echo "::error::Missing required secret: $var"
+              missing=1
+            else
+              echo "$var is configured"
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
 
       - name: Run integration tests
-        run: |
-          uv run pytest -q tests/functional/adapter -s
+        run: make integration-tests

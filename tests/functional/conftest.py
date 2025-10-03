@@ -27,17 +27,13 @@ def dbt_profile_data(dbt_profile_target):
     # Get required environment variables
     required = _required_env()
 
-    # Use default values if environment variables are not set
-    # This allows tests to run but may fail if actual connection is needed
-    if not all(required.values()):
-        print(
-            "Warning: Some DELTASTREAM_* environment variables are missing. Tests may fail."
+    missing = [key for key, value in required.items() if not value]
+    if missing:
+        formatted = ", ".join(f"DELTASTREAM_{key.upper()}" for key in missing)
+        raise pytest.UsageError(
+            "Integration tests require configured DeltaStream secrets. Missing: "
+            f"{formatted}. Configure these as environment variables or GitHub Action secrets."
         )
-        for key, value in required.items():
-            if not value:
-                print(f"Missing: DELTASTREAM_{key.upper()}")
-                # Set default values to prevent immediate failure
-                required[key] = f"test_{key}"
 
     url = os.environ.get("DELTASTREAM_URL", "https://api.deltastream.io/v2")
 
