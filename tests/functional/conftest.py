@@ -1,5 +1,10 @@
-import os
 import pytest
+import os
+
+# Import the functional fixtures as a plugin
+# Note: fixtures with session scope need to be local
+
+pytest_plugins = ["dbt.tests.fixtures.project"]
 
 
 def _required_env() -> dict:
