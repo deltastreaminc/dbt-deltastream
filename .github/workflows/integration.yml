@@ -1,0 +1,68 @@
+name: IT
+run-name: Integration Tests
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  integration-tests:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event_name == 'pull_request' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      RUN_INTEGRATION_TESTS: 1
+      DELTASTREAM_API_TOKEN: ${{ secrets.DELTASTREAM_API_TOKEN }}
+      DELTASTREAM_ORGANIZATION_ID: ${{ secrets.DELTASTREAM_ORGANIZATION_ID }}
+      DELTASTREAM_DATABASE: ${{ secrets.DELTASTREAM_DATABASE }}
+      DELTASTREAM_SCHEMA: ${{ secrets.DELTASTREAM_SCHEMA }}
+      DELTASTREAM_URL: ${{ secrets.DELTASTREAM_URL }}
+
+    steps:
+      - name: Checkout (workflow_run)
+        if: ${{ github.event_name == 'workflow_run' }}
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Checkout (direct trigger)
+        if: ${{ github.event_name != 'workflow_run' }}
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Validate integration secrets
+        run: |
+          missing=0
+          for var in DELTASTREAM_API_TOKEN DELTASTREAM_ORGANIZATION_ID DELTASTREAM_DATABASE DELTASTREAM_SCHEMA DELTASTREAM_URL; do
+            if [ -z "${!var}" ]; then
+              echo "::error::Missing required secret: $var"
+              missing=1
+            else
+              echo "$var is configured"
+            fi
+          done
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
+      - name: Run integration tests
+        run: make integration-tests
