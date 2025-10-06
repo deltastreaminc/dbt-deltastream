@@ -1,6 +1,22 @@
 import os
 import pytest
 
+from dbt.tests.fixtures.project import (  # noqa: F401
+    project,
+    project_setup,
+    project_files,
+    project_root,
+    profiles_root,
+    profiles_yml,
+    dbt_project_yml,
+    models,
+    seeds,
+    snapshots,
+    macros,
+    tests,
+    analyses,
+)
+
 
 def _required_env() -> dict:
     return {
