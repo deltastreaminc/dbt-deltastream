@@ -1,95 +1,246 @@
 # dbt-deltastream
 
-A [dbt](https://www.getdbt.com/) adapter for [DeltaStream](https://deltastream.io) - a streaming processing engine based on Apache Flink.
+<p align="center">
+  <a href="https://pypi.org/project/dbt-deltastream/"><img alt="PyPI version" src="https://img.shields.io/pypi/v/dbt-deltastream.svg"></a>
+  <a href="https://pypi.org/project/dbt-deltastream/"><img alt="Python versions" src="https://img.shields.io/pypi/pyversions/dbt-deltastream.svg"></a>
+  <a href="https://github.com/deltastreaminc/dbt-deltastream/actions"><img alt="CI Status" src="https://github.com/deltastreaminc/dbt-deltastream/workflows/Testing%20Python%20package/badge.svg"></a>
+  <a href="https://github.com/deltastreaminc/dbt-deltastream/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/github/license/deltastreaminc/dbt-deltastream.svg"></a>
+  <a href="https://www.getdbt.com/"><img alt="dbt compatibility" src="https://img.shields.io/badge/dbt-≥1.10-orange.svg"></a>
+  <a href="https://github.com/deltastreaminc/dbt-deltastream/blob/main/CONTRIBUTING.md"><img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
+</p>
 
-## Features
+**dbt-deltastream** is the official [dbt](https://www.getdbt.com/) adapter for [DeltaStream](https://deltastream.io), a unified streaming and batch processing engine built on Apache Flink. This adapter enables data teams to apply the power and simplicity of dbt's transformation workflows to real-time streaming data pipelines.
 
-- Seamless integration with DeltaStream's streaming capabilities
-- Support for DeltaStream core concepts through dbt materialization types:
-  - `table`: Traditional batch table materialization
-  - `materialized_view`: Continuously updated view
-  - `stream`: Pure streaming transformation
-  - `changelog`: Change data capture (CDC) stream
-  - `seed`: Load CSV data into existing entities
-  - `store`: External system connection (Kafka, PostgreSQL, etc.)
-  - `entity`: Entity definition in a store
-  - `database`: Database definition
-  - `function`: User-defined functions (UDFs)
-  - `function_source`: Function source for Java JAR files
-  - `descriptor_source`: Descriptor source for protocol buffer schemas
-  - `schema_registry`: Schema registry connection for Confluent Schema Registry or similar
+### Why dbt-deltastream?
 
-## Installation
+- **🔄 Unified Analytics**: Combine batch and streaming transformations in a single dbt project
+- **⚡ Real-time Insights**: Build continuously updating materialized views and streaming pipelines
+- **🛠️ Developer Experience**: Leverage dbt's familiar SQL-first approach for stream processing
+- **🔌 Ecosystem Integration**: Connect to Kafka, Kinesis, PostgreSQL, and other data systems
+- **📊 Stream as Code**: Version control, test, and document your streaming transformations
+
+DeltaStream bridges the gap between traditional data warehousing and real-time stream processing, and this adapter brings dbt's best practices to the streaming world.
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+Before installing dbt-deltastream, ensure you have:
+
+- **Python 3.11 or higher** installed on your system
+- **dbt-core 1.10 or higher** (will be installed automatically as a dependency)
+- A **DeltaStream account** with:
+  - Organization ID (found on settings page of your DeltaStream dashboard)
+  - API Token (can be generated on the integration page in your DeltaStream dashboard)
+
+> 📘 **New to DeltaStream?** Sign up at [deltastream.io](https://deltastream.io) to get started.
+
+### Installation
+
+Install dbt-deltastream using pip:
 
 ```bash
 pip install dbt-deltastream
 ```
 
-Requirements:
+Or with [uv](https://github.com/astral-sh/uv) for faster installation:
 
-- Python >= 3.11
-- dbt-core >= 1.8.0
+```bash
+uv init && uv add dbt-deltastream
+```
 
-## Configuration
+### Quick Start
 
-Add to your `profiles.yml`:
+#### 1. Create a dbt Project
+
+If you don't have a dbt project yet:
+
+```bash
+dbt init my_deltastream_project
+```
+
+When prompted for the database, select `deltastream`.
+
+#### 2. Configure Your Profile
+
+Edit your `~/.dbt/profiles.yml` (or create `profiles.yml` in your project directory):
 
 ```yaml
-your_profile_name:
+my_deltastream_project:
   target: dev
   outputs:
     dev:
       type: deltastream
-
+      
       # Required Parameters
-      token: your-api-token # Authentication token
-      database: your-database # Target database name
-      schema: your-schema # Target schema name
-      organization_id: your-org-id # Organization identifier
-
+      token: "{{ env_var('DELTASTREAM_API_TOKEN') }}"  # Your API token
+      organization_id: your-org-id                      # Your organization ID
+      database: my_database                             # Target database name
+      schema: my_schema                                 # Target schema name
+      
       # Optional Parameters
-      url: https://api.deltastream.io/v2 # DeltaStream API URL
-      timezone: UTC # Timezone for operations
-      session_id: your-session-id # Custom session identifier for debugging purpose
-      role: your-role # User role
-      store: your-store # Target store name
-      compute_pool: your-compute-pool # Compute pool name
+      url: https://api.deltastream.io/v2                # API endpoint (default)
+      timezone: UTC                                     # Timezone (default: UTC)
+      role: AccountAdmin                                # User role
+      compute_pool: default_pool                        # Compute pool name
 ```
 
-The following parameters are supported in the profile configuration:
+> 🔐 **Security Tip**: Store sensitive credentials in environment variables rather than hardcoding them.
 
-### Required Parameters
+#### 3. Test Your Connection
 
-- `token`: Authentication token for DeltaStream API
-- `database`: Target default database name
-- `schema`: Target default schema name
-- `organization_id`: Organization identifier
+```bash
+dbt debug
+```
 
-### Optional Parameters
+You should see a successful connection to DeltaStream!
 
-- `url`: DeltaStream API URL (default: <https://api.deltastream.io/v2>)
-- `timezone`: Timezone for operations (default: UTC)
-- `session_id`: Custom session identifier for debugging
-- `compute_pool`: Compute pool name to be used if any else use the default compute pool (for models that require one)
+#### 4. Define Your Source Stream
 
-- `role`: User role
-- `store`: target default store name
-
-### Best practices
-
-When configuring your project for production, it is recommended to use environment variables to store sensitive information such as the `token`:
+Create `models/sources.yml` to define a source stream from the trial store:
 
 ```yaml
-your_profile_name:
-  target: prod
-  outputs:
-    prod:
-      type: deltastream
-      token: "{{ env_var('DELTASTREAM_API_TOKEN') }}"
-      ...
+version: 2
+
+sources:
+  - name: kafka
+    schema: public
+    tables:
+      - name: pageviews
+        description: "Pageviews stream from trial store"
+        config:
+          materialized: stream
+          parameters:
+            store: trial_store
+            topic: pageviews
+            'value.format': JSON
+        columns:
+          - name: viewtime
+            type: BIGINT
+          - name: userid
+            type: VARCHAR
+          - name: pageid
+            type: VARCHAR
 ```
 
-## Materializations
+#### 5. Create the Source Stream
+
+Run the operation to create the source stream in DeltaStream:
+
+```bash
+dbt run-operation create_sources
+```
+
+This will create the `pageviews` stream in DeltaStream based on your YAML configuration.
+
+#### 6. Create Your First Transformation Model
+
+Create `models/user_pageviews.sql`:
+
+```sql
+{{ config(
+    materialized='materialized_view'
+) }}
+
+SELECT
+    userid,
+    COUNT(*) as pageview_count,
+    COUNT(DISTINCT pageid) as unique_pages_viewed
+FROM {{ source('kafka', 'pageviews') }}
+GROUP BY userid
+```
+
+#### 7. Run Your Project
+
+```bash
+dbt run
+```
+
+Congratulations! 🎉 You've created your first streaming transformation with dbt-deltastream. You've set up a source stream from Kafka and created a materialized view that continuously aggregates pageview data.
+
+## ⚡ Features
+
+### Supported dbt Capabilities
+
+- ✅ **Materializations**: Table, View, Materialized View, Incremental, Stream, Changelog
+- ✅ **Seeds**: Load CSV data into existing DeltaStream entities
+- ✅ **Tests**: Data quality tests with dbt's testing framework
+- ✅ **Documentation**: Auto-generate docs with `dbt docs generate`
+- ✅ **Sources**: Define and test source data
+- ✅ **Macros**: Full Jinja2 support for reusable SQL
+- ⏳ **Snapshots**: Not yet supported (streaming context differs from batch)
+
+### DeltaStream-Specific Materializations
+
+This adapter extends dbt with streaming-first materializations:
+
+- **`stream`**: Pure streaming transformation with continuous processing
+- **`changelog`**: Change data capture (CDC) stream with primary keys
+- **`materialized_view`**: Continuously updated aggregations
+- **`table`**: Traditional batch table materialization
+- **`store`**: External system connections (Kafka, Kinesis, PostgreSQL, etc.)
+- **`entity`**: Entity definitions within stores
+- **`database`**: Database resource definitions
+- **`function`**: User-defined functions (UDFs) in Java
+- **`function_source`**: JAR file sources for UDFs
+- **`descriptor_source`**: Protocol buffer schema sources
+- **`schema_registry`**: Schema registry connections (Confluent, etc.)
+- **`compute_pool`**: Dedicated compute resource pools
+
+### Advanced Features
+
+- 🔄 **Automatic Retry Logic**: Smart retry for function creation with exponential backoff
+- 📁 **File Attachment**: Seamless JAR and Protocol Buffer file handling
+- 🎯 **Query Management**: Macros to list, terminate, and restart queries
+- 🔗 **Multi-statement Applications**: Execute multiple statements as atomic units
+- 🏗️ **Infrastructure as Code**: Define stores, databases, and compute pools in YAML
+
+## 📋 Configuration
+
+### Profile Parameters
+
+Detailed configuration options for `profiles.yml`:
+
+#### Required Parameters
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `token` | Authentication token for DeltaStream API | `your-api-token` |
+| `database` | Target default database name | `my_database` |
+| `schema` | Target default schema name | `public` |
+| `organization_id` | Organization identifier | `org-12345` |
+
+#### Optional Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `url` | DeltaStream API URL | `https://api.deltastream.io/v2` |
+| `timezone` | Timezone for operations | `UTC` |
+| `session_id` | Custom session identifier for debugging | Auto-generated |
+| `compute_pool` | Compute pool name for models requiring one | Default pool |
+| `role` | User role | - |
+| `store` | Target default store name | - |
+
+### Best Practices
+
+- **Use environment variables** for sensitive credentials:
+
+  ```yaml
+  your_profile_name:
+    target: prod
+    outputs:
+      prod:
+        type: deltastream
+        token: "{{ env_var('DELTASTREAM_API_TOKEN') }}"
+        organization_id: "{{ env_var('DELTASTREAM_ORG_ID') }}"
+        # ... other parameters
+  ```
+
+- **Separate profiles** for different environments (dev, staging, prod)
+- **Document required environment variables** in your project README
+- **Use dbt Cloud** for secure credential management in production
+
+## 🔧 Materializations
 
 DeltaStream supports two types of model definitions:
 
@@ -101,6 +252,11 @@ DeltaStream supports two types of model definitions:
 These models don't contain SQL SELECT statements but define infrastructure components using YAML configuration.
 YAML-only resources can be used to define external system connections such as streams, changelogs, and stores.
 They can be either: managed or unmanaged by dbt DAG.
+
+#### Should you use managed or unmanaged resources?
+
+If you plan to be able to recreate all the infrastructure in different environments and/or use graph operators to execute only the creation of specific resources and downstream transformations, you should use managed resources.
+Else, it might be simpler to use unmanaged resources to avoid placeholder files.
 
 #### Managed
 
@@ -119,6 +275,12 @@ models:
 ```
 
 In that case, we're running into a dbt limitation where we need to create a placeholder .sql file for the model to be detected. That .sql file would contain any content as long as it doesn't contain a "SELECT". We expect that limitation to be lifted in future dbt versions but it's still part of discussions.
+
+For example, you may create `my_kafka_stream.sql` with the following content:
+
+```sql
+-- Placeholder
+```
 
 Then it can be referenced in downstream model using the regular `ref` function:
 
@@ -457,16 +619,9 @@ FROM {{ ref('purchase_events') }}
 GROUP BY product_id
 ```
 
-## Seeds
+## 🌱 Seeds
 
 Load CSV data into existing DeltaStream entities using the `seed` materialization. Unlike traditional dbt seeds that create new tables, DeltaStream seeds insert data into pre-existing entities.
-
-### Key Features
-
-- **Target Existing Entities**: Seeds insert data into existing entities rather than creating new ones
-- **Flexible Store Support**: Can target entities with or without store specifications
-- **Batch Processing**: Efficiently processes CSV data in configurable batch sizes
-- **WITH Parameters**: Support for entity-specific parameters via WITH clauses
 
 ### Configuration
 
@@ -514,19 +669,9 @@ seeds:
 
 **Important**: The target entity must already exist in DeltaStream before running seeds. Seeds only insert data, they do not create entities.
 
-## Function and Source Materializations
+## ⚙️ Function and Source Materializations
 
 DeltaStream supports user-defined functions (UDFs) and their dependencies through specialized materializations.
-
-### Automatic Retry for Function Creation
-
-When creating functions that depend on function sources, the adapter automatically handles timing issues with an intelligent retry mechanism:
-
-- **Automatic Detection**: Function creation statements are automatically detected and retry logic is applied
-- **SQLState-Based Retry**: Uses proper SQLState codes (3D018) instead of text matching for reliable error detection
-- **Exponential Backoff**: Starts with 2-second intervals, increasing by 1.5x each retry (capped at 10 seconds)
-- **Configurable Timeout**: Default 30-second timeout with clear error messages
-- **Transparent Operation**: No changes needed to existing code - retry logic is applied automatically
 
 ### File Attachment Support
 
@@ -535,7 +680,6 @@ The adapter provides seamless file attachment for function sources and descripto
 - **Standardized Interface**: Common file handling logic for both function sources and descriptor sources
 - **Path Resolution**: Supports both absolute paths and relative paths (including `@` syntax for project-relative paths)
 - **Automatic Validation**: Files are validated for existence and accessibility before attachment
-- **Thread-Safe Storage**: Uses connection thread-local storage for pending file management
 
 ### Function Source
 
@@ -596,37 +740,7 @@ Creates a user-defined function that references a function source:
 SELECT 1 as placeholder
 ```
 
-**Note**: Functions, function sources, and descriptor sources are resources, not relations. They are managed independently and can be referenced by name in your streaming queries.
-
-## Troubleshooting
-
-### Function Source Readiness
-
-If you encounter "function source is not ready" errors when creating functions:
-
-1. **Automatic Retry**: The adapter automatically retries function creation with exponential backoff
-2. **Timeout Configuration**: The default 30-second timeout can be extended if needed for large JAR files
-3. **Dependency Order**: Ensure function sources are created before dependent functions
-4. **Manual Retry**: If automatic retry fails, wait a few minutes and retry the operation
-
-### File Attachment Issues
-
-For problems with file attachments in function sources and descriptor sources:
-
-1. **File Paths**: Use `@/path/to/file` syntax for project-relative paths
-2. **File Types**:
-
-- Function sources require `.jar` files
-- Descriptor sources require compiled `.desc` files (not `.proto`)
-
-3. **File Validation**: The adapter validates file existence before attempting attachment
-4. **Compilation**: For descriptor sources, ensure protobuf files are compiled:
-
-   ```bash
-   protoc --descriptor_set_out=output.desc input.proto
-   ```
-
-## Query Macros
+## 🎯 Query Management Macros
 
 DeltaStream dbt adapter provides macros to help you manage and terminate running queries directly from dbt.
 
@@ -647,7 +761,6 @@ dbt run-operation terminate_all_queries
 ```
 
 These macros leverage DeltaStream's `LIST QUERIES;` and `TERMINATE QUERY <query_id>;` SQL commands to identify and terminate running queries. This is useful for cleaning up long-running or stuck jobs during development or operations.
-Using this specific macro is not recommended in production environments as it will stop all queries including those that weren't created by the current user or in dbt.
 
 ### List All Queries
 
@@ -661,7 +774,7 @@ dbt run-operation list_all_queries
 
 **Example Output:**
 
-```
+```text
 ID | Name | Version | IntendedState | ActualState | Query | Owner | CreatedAt | UpdatedAt
 -----------------------------------------------------------------------------------------
 <query row 1>
@@ -687,7 +800,7 @@ dbt run-operation describe_query --args '{query_id: "<QUERY_ID>"}'
 
 This will display the query's current state and any error information to help you understand why the query failed.
 
-## Application Macro
+## 📦 Application Macro
 
 ### Execute Multiple Statements as a Unit
 
@@ -706,10 +819,61 @@ dbt run-operation application --args '{
 }'
 ```
 
-## Contributing
+## 🔍 Troubleshooting
 
-We welcome contributions! Please feel free to submit a Pull Request.
+### Function Source Readiness
 
-## License
+If you encounter "function source is not ready" errors when creating functions:
 
-[Apache License 2.0](LICENSE)
+1. **Automatic Retry**: The adapter automatically retries function creation with exponential backoff
+2. **Timeout Configuration**: The default 30-second timeout can be extended if needed for large JAR files
+3. **Dependency Order**: Ensure function sources are created before dependent functions
+4. **Manual Retry**: If automatic retry fails, wait a few minutes and retry the operation
+
+### File Attachment Issues
+
+For problems with file attachments in function sources and descriptor sources:
+
+1. **File Paths**: Use `@/path/to/file` syntax for project-relative paths
+2. **File Types**:
+   - Function sources require `.jar` files
+   - Descriptor sources require compiled `.desc` files (not `.proto`)
+3. **File Validation**: The adapter validates file existence before attempting attachment
+4. **Compilation**: For descriptor sources, ensure protobuf files are compiled:
+
+   ```bash
+   protoc --descriptor_set_out=output.desc input.proto
+   ```
+
+## 📚 Resources & Documentation
+
+### Official Documentation
+
+- **[DeltaStream Documentation](https://docs.deltastream.io)** - Complete DeltaStream platform documentation
+- **[dbt Documentation](https://docs.getdbt.com)** - Official dbt documentation
+
+### Examples
+
+Check out the `/examples` directory for complete working examples:
+
+- `snowflake_with_deltastream/` - Integration with Snowflake
+- `databricks_with_deltastream/` - Integration with Databricks
+
+## 🤝 Contributing
+
+Contributions are welcome and encouraged! Whether you're fixing bugs, adding features, improving documentation, or creating examples, your help makes this adapter better for everyone.
+
+**Ways to Contribute:**
+
+- 🐛 **Report bugs** via [GitHub Issues](https://github.com/deltastreaminc/dbt-deltastream/issues)
+- 💡 **Suggest features** or enhancements
+- 📖 **Improve documentation** - even small fixes help!
+- 🧪 **Add tests** to increase coverage
+- ⭐ **Star the repository** to show your support
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on:
+
+- Setting up your development environment
+- Running tests and quality checks
+- Submitting pull requests
+- Using `changie` for changelog management
