@@ -47,7 +47,7 @@ unit-tests:
 
 # Integration tests
 integration-tests:
-	uv run pytest -q tests/functional/adapter -s
+	RUN_INTEGRATION_TESTS=1 uv run pytest -q tests/functional/adapter -s
 
 # Build package
 build:

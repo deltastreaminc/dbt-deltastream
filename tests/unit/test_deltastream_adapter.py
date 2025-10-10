@@ -11,7 +11,7 @@ from dbt.adapters.deltastream.impl import DeltastreamAdapter
 from dbt.adapters.deltastream.relation import (
     DeltastreamRelation,
 )
-from tests.utils import (
+from tests.unit.utils import (
     config_from_parts_or_dicts,
     inject_adapter,
     TestAdapterConversions,
