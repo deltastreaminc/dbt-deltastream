@@ -1,0 +1,123 @@
+version: 2
+
+models:
+  - name: gold_sales_by_category
+    description: "Real-time sales aggregations by product category using 5-minute tumbling windows"
+    config:
+      materialized: materialized_view
+      tags: ["gold", "aggregates", "category"]
+    columns:
+      - name: category
+        description: "Product category"
+      - name: window_start
+        description: "Window start timestamp"
+      - name: window_end
+        description: "Window end timestamp"
+      - name: transaction_count
+        description: "Number of transactions in window"
+      - name: total_quantity
+        description: "Total quantity sold"
+      - name: total_revenue
+        description: "Total revenue in window"
+      - name: avg_transaction_value
+        description: "Average transaction value"
+      - name: total_discount
+        description: "Total discount amount"
+
+  - name: gold_top_customers
+    description: "Top customers by spend using 24-hour hopping windows updated every hour"
+    config:
+      materialized: materialized_view
+      tags: ["gold", "aggregates", "customer"]
+    columns:
+      - name: customer_id
+        description: "Customer identifier"
+      - name: customer_name
+        description: "Customer name"
+      - name: customer_segment
+        description: "Customer segment"
+      - name: window_start
+        description: "Window start timestamp"
+      - name: window_end
+        description: "Window end timestamp"
+      - name: purchase_count
+        description: "Number of purchases"
+      - name: total_spent
+        description: "Total amount spent"
+      - name: avg_order_value
+        description: "Average order value"
+      - name: unique_categories
+        description: "Number of unique categories purchased"
+
+  - name: gold_store_performance
+    description: "Store performance metrics using 15-minute tumbling windows"
+    config:
+      materialized: materialized_view
+      tags: ["gold", "aggregates", "store"]
+    columns:
+      - name: store_id
+        description: "Store identifier"
+      - name: store_name
+        description: "Store name"
+      - name: region
+        description: "Store region"
+      - name: window_start
+        description: "Window start timestamp"
+      - name: window_end
+        description: "Window end timestamp"
+      - name: transaction_count
+        description: "Number of transactions"
+      - name: total_revenue
+        description: "Total revenue"
+      - name: avg_transaction_value
+        description: "Average transaction value"
+      - name: total_items_sold
+        description: "Total items sold"
+
+  - name: gold_discount_effectiveness
+    description: "Discount effectiveness analysis using hourly aggregations"
+    config:
+      materialized: materialized_view
+      tags: ["gold", "aggregates", "discount"]
+    columns:
+      - name: category
+        description: "Product category"
+      - name: window_start
+        description: "Window start timestamp"
+      - name: window_end
+        description: "Window end timestamp"
+      - name: avg_discount_rate
+        description: "Average discount rate"
+      - name: total_discount_amount
+        description: "Total discount amount"
+      - name: total_revenue
+        description: "Total revenue"
+      - name: discount_to_revenue_ratio
+        description: "Discount amount as percentage of revenue"
+      - name: transaction_count
+        description: "Number of transactions"
+
+  - name: gold_revenue_trends
+    description: "Revenue trends across different time periods"
+    config:
+      materialized: materialized_view
+      tags: ["gold", "aggregates", "trends"]
+    columns:
+      - name: date_key
+        description: "Date in YYYYMMDD format"
+      - name: day_name
+        description: "Day of week name"
+      - name: week_of_year
+        description: "Week number"
+      - name: month_name
+        description: "Month name"
+      - name: quarter
+        description: "Quarter"
+      - name: year
+        description: "Year"
+      - name: daily_revenue
+        description: "Total daily revenue"
+      - name: daily_transactions
+        description: "Total daily transactions"
+      - name: avg_transaction_value
+        description: "Average transaction value"
