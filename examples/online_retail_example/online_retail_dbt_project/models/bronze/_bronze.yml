@@ -1,0 +1,29 @@
+version: 2
+
+models:
+  - name: fact_sales_bronze
+    description: "Immutable raw sales data stored in Iceberg for compliance and audit purposes"
+    config:
+      materialized: table
+      tags: ["bronze", "raw", "compliance"]
+    columns:
+      - name: transaction_id
+        description: "Unique transaction identifier"
+      - name: event_time
+        description: "Transaction timestamp"
+      - name: product_id
+        description: "Product identifier"
+      - name: customer_id
+        description: "Customer identifier"
+      - name: store_id
+        description: "Store location identifier"
+      - name: quantity
+        description: "Number of items purchased"
+      - name: unit_price
+        description: "Price per unit"
+      - name: discount
+        description: "Discount percentage applied (0.00-1.00)"
+      - name: sales_amount
+        description: "Total sale amount after discount"
+      - name: ingestion_time
+        description: "Timestamp when record was ingested into bronze layer"
