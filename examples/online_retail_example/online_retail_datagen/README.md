@@ -1,6 +1,6 @@
 # Online Retail Data Generator
 
-A Python application that uses the DeltaStream SDK to insert sample pageview data into DeltaStream entities. This demonstrates how to push data into Kafka topics via DeltaStream for testing and development.
+A Python application that uses the DeltaStream SDK to insert sample retail sales transactions into DeltaStream entities. This demonstrates how to push data into Kafka topics via DeltaStream for testing and development.
 
 ## 📋 Prerequisites
 
@@ -8,7 +8,7 @@ A Python application that uses the DeltaStream SDK to insert sample pageview dat
 - DeltaStream account with:
   - Organization ID
   - API Token
-- Access to a Kafka store (or use DeltaStream's `trial_store`)
+- Access to a DeltaStream Kafka store (or use DeltaStream's `trial_store`)
 
 ## 🚀 Quick Start
 

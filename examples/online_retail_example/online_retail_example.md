@@ -22,7 +22,7 @@ The example follows a typical streaming data architecture:
 
 Before running this example, ensure you have:
 
-- A running DeltaStream cluster
+- A DeltaStream account
 - The dbt-deltastream adapter installed (`pip install dbt-deltastream`)
 - Python 3.8+ with required dependencies
 - Access to configure DeltaStream connections
@@ -45,7 +45,7 @@ Before running this example, ensure you have:
 
 3. **Configure DeltaStream connection:**
    - Edit `online_retail_dbt_project/profiles.yml`
-   - Update the connection details for your DeltaStream cluster
+   - Update the connection details for your DeltaStream account
    - Ensure the profile name matches your dbt configuration
 
 4. **Install dbt dependencies:**
