@@ -263,9 +263,8 @@
 {% endmacro %}
 
 {% macro deltastream__apply_grants(relation, grant_config, should_revoke) -%}
-  {# DeltaStream does not support grants, so this is a no-op #}
   {% if grant_config %}
-    {{ log("DeltaStream does not support grants configuration. Skipping grant application.", info=True) }}
+    {{ log("Grants support is not implemented. Skipping grant application.", info=True) }}
   {% endif %}
 {% endmacro %}
 
