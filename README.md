@@ -847,6 +847,12 @@ For problems with file attachments in function sources and descriptor sources:
 
 ## 📚 Resources & Documentation
 
+### Detailed supported dbt feature and SQL reference
+
+- [dbt Adapter Features](./documentation/dbt_adapter_features.md)
+- [SQL syntax support](./documentation/syntax_support.md)
+
+
 ### Official Documentation
 
 - **[DeltaStream Documentation](https://docs.deltastream.io)** - Complete DeltaStream platform documentation
