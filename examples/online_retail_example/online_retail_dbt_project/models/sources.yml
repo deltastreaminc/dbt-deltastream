@@ -84,8 +84,8 @@ sources:
             type: STRUCT<customer_id BIGINT, customer_name VARCHAR, address_city VARCHAR, address_state VARCHAR>
           - name: 'source'
             type: STRUCT<db VARCHAR, `schema` VARCHAR, `table` VARCHAR, `lsn` BIGINT>
-      - name : dim_sale
-        description: "Customer info dimension table"
+      - name : dim_store
+        description: "Store info dimension table"
         config: 
           materialized: stream
           parameters:
@@ -93,16 +93,16 @@ sources:
             'value.format': JSON
             'postgresql.db.name': 'demo'
             'postgresql.schema.name': 'public'
-            'postgresql.table.name': 'dim_customer'
+            'postgresql.table.name': 'dim_store'
         columns:
           - name: op
             type: VARCHAR
           - name: ts_ms
             type: BIGINT
           - name: 'before'
-            type: STRUCT<customer_id BIGINT, customer_name VARCHAR, address_city VARCHAR, address_state VARCHAR>
+            type: STRUCT<store_id BIGINT, store_name VARCHAR, store_city VARCHAR, store_state VARCHAR>
           - name: 'after'
-            type: STRUCT<customer_id BIGINT, customer_name VARCHAR, address_city VARCHAR, address_state VARCHAR>
+            type: STRUCT<store_id BIGINT, store_name VARCHAR, store_city VARCHAR, store_state VARCHAR>
           - name: 'source'
             type: STRUCT<db VARCHAR, `schema` VARCHAR, `table` VARCHAR, `lsn` BIGINT>
  
