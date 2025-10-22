@@ -77,10 +77,10 @@ async def ensure_entity(
                 name=entity_name,
                 store=target_store.name,
                 params={
-                    "kafka.topic.partitions": 1,
-                    "kafka.topic.replicas": 1,
-                    "kafka.topic.retention.ms": "604800000",  # 7 days
-                    "kafka.topic.segment.ms": "86400000",  # 1 day
+                    # "kafka.topic.partitions": 1,
+                    # "kafka.topic.replicas": 3,
+                    # "kafka.topic.retention.ms": "604800000",  # 7 days
+                    # "kafka.topic.segment.ms": "86400000",  # 1 day
                 },
             )
             await client.entities.create(params=create_params)
@@ -150,8 +150,8 @@ async def run_example() -> None:
     """Main function to run the data generator example."""
     load_dotenv(find_dotenv())
 
-    token = get_env("DELTASTREAM_TOKEN")
-    org_id = get_env("DELTASTREAM_ORG_ID")
+    token = get_env("DELTASTREAM_API_TOKEN")
+    org_id = get_env("DELTASTREAM_ORGANIZATION_ID")
     server_url = os.getenv("DELTASTREAM_SERVER_URL")
 
     async def token_provider() -> str:
@@ -167,8 +167,8 @@ async def run_example() -> None:
     if db_name:
         await client.use_database(db_name)
 
-    entity_name = os.getenv("ENTITY_NAME", "fact_sales_raw")
-    store_name = os.getenv("STORE_NAME", "kafka_store")
+    entity_name = os.getenv("ENTITY_NAME" )
+    store_name = os.getenv("STORE_NAME")
 
     if not entity_name or not store_name:
         print("❌ Missing required environment variables: ENTITY_NAME and STORE_NAME")

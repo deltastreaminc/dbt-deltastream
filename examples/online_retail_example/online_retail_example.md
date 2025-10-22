@@ -1,4 +1,4 @@
-# Online Retail Example
+# Online Retail Example (WIP)
 
 This example demonstrates the integration of dbt with DeltaStream for processing streaming data in an online retail scenario. It showcases how to use the dbt-deltastream adapter to build, transform, and analyze real-time retail transaction data using DeltaStream's streaming SQL capabilities.
 
@@ -14,18 +14,17 @@ The online retail example consists of two main components:
 
 The example follows a typical streaming data architecture:
 
-- **Bronze Layer**: Raw ingestion of streaming transaction data
-- **Silver Layer**: Cleansed and enriched data with business logic
+- **Bronze Layer**: Raw ingestion of streaming sales transaction data
+- **Silver Layer**: Cleansed and enriched data with dimesion data
 - **Gold Layer**: Aggregated analytics and business intelligence views
 
 ## Prerequisites
 
 Before running this example, ensure you have:
 
-- A running DeltaStream cluster
 - The dbt-deltastream adapter installed (`pip install dbt-deltastream`)
 - Python 3.8+ with required dependencies
-- Access to configure DeltaStream connections
+- DeltaStream API token
 
 ## Setup Instructions
 
@@ -44,7 +43,7 @@ Before running this example, ensure you have:
    ```
 
 3. **Configure DeltaStream connection:**
-   - Edit `online_retail_dbt_project/profiles.yml`
+   - rename .env.example file to .env and edit it.
    - Update the connection details for your DeltaStream cluster
    - Ensure the profile name matches your dbt configuration
 
@@ -61,6 +60,7 @@ Before running this example, ensure you have:
 
    ```bash
    cd online_retail_datagen
+   source .venv/bin/activate
    uv run python src/data_generator.py
    ```
 
@@ -70,6 +70,7 @@ Before running this example, ensure you have:
 
    ```bash
    cd ../online_retail_dbt_project
+   source .venv/bin/activate
    uv run dbt run
    ```
 

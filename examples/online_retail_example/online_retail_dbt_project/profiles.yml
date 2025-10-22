@@ -4,19 +4,19 @@ online_retail_dbt:
     dev:
       type: deltastream
       token: "{{ env_var('DELTASTREAM_API_TOKEN') }}"
-      organization_id: "{{ env_var('DELTASTREAM_ORG_ID') }}"
+      organization_id: "{{ env_var('DELTASTREAM_ORGANIZATION_ID') }}"
       database: online_retail_dev
       schema: public
-      url: "{{ env_var('DELTASTREAM_SERVER_URL', 'https://api.deltastream.io/v2') }}"
+      url: "{{ env_var('DELTASTREAM_SERVER_URL') }}"
       timezone: UTC
       threads: 1
 
     prod:
       type: deltastream
       token: "{{ env_var('DELTASTREAM_API_TOKEN') }}"
-      organization_id: "{{ env_var('DELTASTREAM_ORG_ID') }}"
+      organization_id: "{{ env_var('DELTASTREAM_ORGANIZATION_ID') }}"
       database: online_retail_prod
       schema: public
-      url: "{{ env_var('DELTASTREAM_SERVER_URL', 'https://api.deltastream.io/v2') }}"
+      url: "{{ env_var('DELTASTREAM_SERVER_URL') }}"
       timezone: UTC
       threads: 1

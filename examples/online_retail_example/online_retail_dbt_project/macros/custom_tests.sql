@@ -23,3 +23,7 @@ FROM {{ model }}
 WHERE ABS(sales_amount - (quantity * unit_price * (1 - discount))) > 0.01
 
 {% endmacro %}
+
+{% macro drop_stream(stream_name) %}
+  drop stream {{stream_name}}
+{% endmacro %}
