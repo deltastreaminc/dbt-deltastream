@@ -105,7 +105,3 @@ sources:
             type: STRUCT<store_id BIGINT, store_name VARCHAR, store_city VARCHAR, store_state VARCHAR>
           - name: 'source'
             type: STRUCT<db VARCHAR, `schema` VARCHAR, `table` VARCHAR, `lsn` BIGINT>
- 
-
-            
-
