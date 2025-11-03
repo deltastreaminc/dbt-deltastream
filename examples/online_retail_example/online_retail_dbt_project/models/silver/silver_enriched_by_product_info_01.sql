@@ -2,9 +2,9 @@
   config(
     materialized='stream',
     parameters={
-      'value.format': 'json',
-      'key.format': 'JSON',
-      'store': 'pubmsk01'
+      'value.format': '{{ var("value_format") }}',
+      'key.format': '{{ var("key_format") }}',
+      'store': '{{ var("store_name") }}'
     }
   )
 }}
