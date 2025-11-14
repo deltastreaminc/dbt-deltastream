@@ -1,6 +1,6 @@
 {% macro create_source(node) %}
   {%- set identifier = node['identifier'] -%}
-  {%- set parameters = node.config.parameters %}
+  {%- set parameters = node.config.get('parameters', {}) -%}
   {%- set materialized = node.config.get('materialized', 'stream') -%}
 
   {# Check if it's a resource type #}
@@ -69,12 +69,14 @@
   
   {# Handle regular relations #}
   {% else %}
+    {%- set source_database = node.database or database -%}
+    {%- set source_schema = node.schema or schema -%}
     {%- set old_relation = adapter.get_relation(identifier=identifier,
-                                              schema=schema,
-                                              database=database) -%}
+                                              schema=source_schema,
+                                              database=source_database) -%}
     {%- set target_relation = api.Relation.create(identifier=identifier,
-                                                schema=schema,
-                                                database=database,
+                                                schema=source_schema,
+                                                database=source_database,
                                                 type="table") -%}
 
     {% if old_relation %}

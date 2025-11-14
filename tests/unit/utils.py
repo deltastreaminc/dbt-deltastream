@@ -3,6 +3,7 @@ Note that all imports should be inside the functions to avoid import/mocking
 issues.
 """
 
+import logging
 import string
 import os
 from unittest import mock
@@ -14,6 +15,8 @@ import pytest
 from dbt_common.dataclass_schema import ValidationError
 from dbt.config.project import PartialProject
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def normalize(path):
@@ -185,23 +188,23 @@ class ContractTestCase(TestCase):
 def compare_dicts(dict1, dict2):
     first_set = set(dict1.keys())
     second_set = set(dict2.keys())
-    print(
-        f"--- Difference between first and second keys: {first_set.difference(second_set)}"
+    logger.info(
+        "Difference between first and second keys: %s", first_set.difference(second_set)
     )
-    print(
-        f"--- Difference between second and first keys: {second_set.difference(first_set)}"
+    logger.info(
+        "Difference between second and first keys: %s", second_set.difference(first_set)
     )
     common_keys = set(first_set).intersection(set(second_set))
     found_differences = False
     for key in common_keys:
         if dict1[key] != dict2[key]:
-            print(f"--- --- first dict: {key}: {str(dict1[key])}")
-            print(f"--- --- second dict: {key}: {str(dict2[key])}")
+            logger.info("first dict: %s: %s", key, str(dict1[key]))
+            logger.info("second dict: %s: %s", key, str(dict2[key]))
             found_differences = True
     if found_differences:
-        print("--- Found differences in dictionaries")
+        logger.info("Found differences in dictionaries")
     else:
-        print("--- Found no differences in dictionaries")
+        logger.info("Found no differences in dictionaries")
 
 
 def assert_from_dict(obj, dct, cls=None):

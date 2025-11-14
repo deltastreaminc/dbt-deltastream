@@ -10,7 +10,8 @@ help:
 	@echo "  mypy              Run mypy type checking"
 	@echo "  test              Run all tests with pytest"
 	@echo "  unit-tests        Run unit tests only (exclude integration tests)"
-	@echo "  integration-tests Run integration tests for the adapter"
+	@echo "  integration-tests Run all integration tests for the adapter"
+	@echo "  integration-test  Run a single integration test file (use TEST_FILE=path/to/test.py)"
 	@echo "  build             Build the package"
 	@echo "  ci                Run all CI checks (lint, format, mypy, unit-tests, build)"
 	@echo "  clean             Clean build artifacts"
@@ -47,7 +48,25 @@ unit-tests:
 
 # Integration tests
 integration-tests:
-	RUN_INTEGRATION_TESTS=1 uv run pytest -q tests/functional/adapter -s
+	@if [ -f .env ]; then \
+		echo "Loading environment variables from .env file..."; \
+		eval $$(cat .env | grep -v '^#' | grep -v '^$$' | sed 's/=/="/; s/$$/"/; s/^/export /' | tr '\n' ';') && uv run pytest -q tests/functional/adapter -s -m integration; \
+	else \
+		uv run pytest -q tests/functional/adapter -s -m integration; \
+	fi
+
+# Run a single integration test file
+integration-test:
+	@if [ -z "$(TEST_FILE)" ]; then \
+		echo "Usage: make integration-test TEST_FILE=path/to/test_file.py"; \
+		exit 1; \
+	fi; \
+	if [ -f .env ]; then \
+		echo "Loading environment variables from .env file..."; \
+		eval $$(cat .env | grep -v '^#' | grep -v '^$$' | sed 's/=/="/; s/$$/"/; s/^/export /' | tr '\n' ';') && uv run pytest -q $(TEST_FILE) -s -m integration; \
+	else \
+		uv run pytest -q $(TEST_FILE) -s -m integration; \
+	fi
 
 # Build package
 build:
