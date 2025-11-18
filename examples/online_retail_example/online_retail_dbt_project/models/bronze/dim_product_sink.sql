@@ -15,6 +15,6 @@ select
 `after`->product_name as product_name,
 `after`->product_price as product_price
 from {{source('kafka_infra', 'dim_product')}} 
-with('postgresql.slot.name' = 'slot001', 'value.format' = 'json')
+with('postgresql.slot.name' = 'slot002', 'value.format' = 'json')
 where `after` is not null
 
