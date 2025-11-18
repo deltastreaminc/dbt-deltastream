@@ -1,32 +1,45 @@
 version: 2
 
 sources:
-  - name: bronze
-    description: "Bronze layer data copied from Kafka"
-    schema: bronze 
-    tables:
-      - name: pageviews
-        description: "Pageviews data"
-        columns:
-          - name: viewtime
-            type: timestamp  
-          - name: userid
-            type: string
-          - name: pageid
-            type: string
-            
-      - name: users_log
-        description: "Users log data"
-        columns:
-          - name: registertime
-            type: timestamp 
-          - name: userid
-            type: string
-          - name: regionid
-            type: string
-          - name: gender
-            type: string
-          - name: interests
-            type: array<string>
-          - name: contactinfo
-            type: "struct<phone:string, city:string, state:string, zipcode:string>"
+- name: kafka # source name, not used in DeltaStream but required by dbt
+  schema: public # schema where the stream will be created, `public` schema is created upon database creation
+  tables:
+    - name: pageviews # stream name
+      description: "Pageviews stream"
+      config:
+        materialized: stream
+        parameters:
+          store: trial_store
+          topic: pageviews
+          'value.format': JSON
+      columns:
+        - name: viewtime
+          type: BIGINT
+        - name: userid
+          type: VARCHAR
+        - name: pageid
+          type: VARCHAR
+    - name: users_log
+      description: "Users log"
+      config:
+        materialized: changelog
+        primary_key: userid
+        parameters:
+          store: trial_store
+          'topic': 'users'
+          'key.format': 'json'
+          'key.type': 'STRUCT<userid VARCHAR>'
+          'value.format': 'json'
+      columns:
+        - name: registertime
+          type: BIGINT
+        - name: userid
+          type: VARCHAR
+        - name: regionid
+          type: VARCHAR
+        - name: gender
+          type: VARCHAR
+        - name: interests
+          type: ARRAY<VARCHAR>
+        - name: contactinfo
+          type: STRUCT<phone VARCHAR, city VARCHAR, "state" VARCHAR, zipcode VARCHAR>
