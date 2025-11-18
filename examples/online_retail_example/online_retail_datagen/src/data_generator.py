@@ -167,7 +167,7 @@ async def run_example() -> None:
     if db_name:
         await client.use_database(db_name)
 
-    entity_name = os.getenv("ENTITY_NAME" )
+    entity_name = os.getenv("ENTITY_NAME")
     store_name = os.getenv("STORE_NAME")
 
     if not entity_name or not store_name:
