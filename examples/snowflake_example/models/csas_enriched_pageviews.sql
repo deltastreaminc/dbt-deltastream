@@ -1,23 +1,21 @@
 {{
   config(
-    materialized = 'incremental',
-    unique_key = ['userid', 'viewtime'],
-    incremental_strategy = 'merge'
+    materialized='stream',
+    parameters={
+      'value.format': 'json',
+      'key.format': 'JSON',
+      'store': 'trial_store'
+    }
   )
 }}
-
-SELECT
-    p.viewtime,
-    p.userid,
-    p.pageid,
-    u.regionid,
-    u.gender,
-    u.interests,
-    u.contactinfo,
-    u.registertime
-FROM {{ source('bronze', 'pageviews') }} p
-LEFT JOIN {{ source('bronze', 'users_log') }} u
-    ON p.userid = u.userid
-{% if is_incremental() %}
-    WHERE p.viewtime > (SELECT MAX(viewtime) FROM {{ this }})
-{% endif %}
+SELECT 
+    TO_TIMESTAMP_LTZ(viewtime, 3) AS viewtime,
+    p.userid AS userid,
+    pageid,
+    TO_TIMESTAMP_LTZ(registertime, 3) AS registertime,
+    regionid,
+    gender,
+    interests,
+    contactinfo
+FROM {{ source('kafka', 'pageviews') }} p
+JOIN {{ source('kafka', 'users_log') }} u ON u.userid = p.userid
