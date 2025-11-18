@@ -43,7 +43,7 @@ seeds:
 
 vars:
   # Global variables
-  store_name: 'pubmsk01'
+  store_name: 'pubMSK01'
   value_format: 'json'
   key_format: 'json'
   high_spending_customers_threshold: 1000_

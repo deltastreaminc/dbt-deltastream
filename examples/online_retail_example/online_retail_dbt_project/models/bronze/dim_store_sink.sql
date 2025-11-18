@@ -16,6 +16,6 @@ select
 `after`->store_city as store_city,
 `after`->store_state as store_state
 from {{source('kafka_infra', 'dim_store')}} 
-with('postgresql.slot.name' = 'slot001', 'value.format' = 'json')
+with('postgresql.slot.name' = 'slot003', 'value.format' = 'json')
 where `after` is not null
 

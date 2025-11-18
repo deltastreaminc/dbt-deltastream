@@ -47,7 +47,14 @@ DELTASTREAM_API_TOKEN=your-api-token-here
 DELTASTREAM_ORG_ID=your-org-id-here
 ```
 
-3. The `profiles.yml` is already configured to use environment variables for security.
+3. export the enviroment variables
+```bash
+set -a
+source .env
+set +a
+```  
+
+The `profiles.yml` is already configured to use environment variables for security.
 
 ### Running the Example
 
