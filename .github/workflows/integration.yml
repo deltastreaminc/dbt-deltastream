@@ -20,12 +20,15 @@ jobs:
       contents: read
 
     env:
-      RUN_INTEGRATION_TESTS: 1
       DELTASTREAM_API_TOKEN: ${{ secrets.DELTASTREAM_API_TOKEN }}
       DELTASTREAM_ORGANIZATION_ID: ${{ secrets.DELTASTREAM_ORGANIZATION_ID }}
       DELTASTREAM_DATABASE: ${{ secrets.DELTASTREAM_DATABASE }}
       DELTASTREAM_SCHEMA: ${{ secrets.DELTASTREAM_SCHEMA }}
       DELTASTREAM_URL: ${{ secrets.DELTASTREAM_URL }}
+      DELTASTREAM_STORE: ${{ secrets.DELTASTREAM_STORE }}
+      DELTASTREAM_CREATE_STORE: true
+      DELTASTREAM_IT_PREFIX: "dbte2e_"
+      DELTASTREAM_CREATE_STORE_SQL: "CREATE STORE {store_name} WITH ('type' = KAFKA, 'uris' = 'b-1-public.pubmskbugbashdemo2.0er9my.c4.kafka.us-east-1.amazonaws.com:9198,b-3-public.pubmskbugbashdemo2.0er9my.c4.kafka.us-east-1.amazonaws.com:9198,b-2-public.pubmskbugbashdemo2.0er9my.c4.kafka.us-east-1.amazonaws.com:9198', 'kafka.sasl.hash_function' = AWS_MSK_IAM, 'kafka.msk.aws_region' = 'us-east-1', 'kafka.msk.iam_role_arn' = 'arn:aws:iam::033434007612:role/e2e-dbt-DeltaStreamRole');"
 
     steps:
       - name: Checkout (workflow_run)
@@ -52,7 +55,8 @@ jobs:
       - name: Validate integration secrets
         run: |
           missing=0
-          for var in DELTASTREAM_API_TOKEN DELTASTREAM_ORGANIZATION_ID DELTASTREAM_DATABASE DELTASTREAM_SCHEMA DELTASTREAM_URL; do
+          # Required variables
+          for var in DELTASTREAM_API_TOKEN DELTASTREAM_ORGANIZATION_ID; do
             if [ -z "${!var}" ]; then
               echo "::error::Missing required secret: $var"
               missing=1
@@ -60,6 +64,16 @@ jobs:
               echo "$var is configured"
             fi
           done
+
+          # Optional variables (for store configuration)
+          for var in DELTASTREAM_DATABASE DELTASTREAM_SCHEMA DELTASTREAM_URL DELTASTREAM_STORE DELTASTREAM_CREATE_STORE DELTASTREAM_CREATE_STORE_SQL DELTASTREAM_IT_PREFIX; do
+            if [ -z "${!var}" ]; then
+              echo "$var is not configured (optional)"
+            else
+              echo "$var is configured"
+            fi
+          done
+
           if [ "$missing" -eq 1 ]; then
             exit 1
           fi
