@@ -1,0 +1,107 @@
+version: 2
+
+sources:
+  - name: kafka_infra
+    description: "Kafka instore for online retail analytics"
+    schema: public
+    tables:
+      # Source Stream: Raw Sales Transactions
+      - name: fact_sales_raw
+        description: "Raw sales transactions from e-commerce platform"
+        config:
+          materialized: stream
+          parameters:
+            store: pubMSK01
+            topic: fact_sales_raw
+            'value.format': JSON
+        columns:
+          - name: transaction_id
+            description: "Unique transaction identifier"
+            type: VARCHAR
+          - name: event_time
+            description: "Transaction timestamp in milliseconds since epoch"
+            type: BIGINT
+          - name: product_id
+            description: "Product identifier"
+            type: VARCHAR
+          - name: customer_id
+            description: "Customer identifier"
+            type: VARCHAR
+          - name: store_id
+            description: "Store location identifier"
+            type: VARCHAR
+          - name: quantity
+            description: "Number of items purchased"
+            type: INTEGER
+          - name: unit_price
+            description: "Price per unit"
+            type: DECIMAL(10,2)
+          - name: discount
+            description: "Discount percentage applied (0.00-1.00)"
+            type: DECIMAL(3,2)
+          - name: sales_amount
+            description: "Total sale amount after discount"
+            type: DECIMAL(10,2)
+      - name : dim_product
+        description: "Product info dimension table"
+        config: 
+          materialized: stream
+          parameters:
+            store: ec2pg
+            'value.format': JSON
+            'postgresql.db.name': 'demo'
+            'postgresql.schema.name': 'public'
+            'postgresql.table.name': 'dim_product'
+        columns:
+          - name: op
+            type: VARCHAR
+          - name: ts_ms
+            type: BIGINT
+          - name: 'before'
+            type: STRUCT<product_id BIGINT, product_name VARCHAR, product_price DECIMAL(10,2)>
+          - name: 'after'
+            type: STRUCT<product_id BIGINT, product_name VARCHAR, product_price DECIMAL(10,2)>
+          - name: 'source'
+            type: STRUCT<db VARCHAR, `schema` VARCHAR, `table` VARCHAR, `lsn` BIGINT>
+      - name : dim_customer
+        description: "Customer info dimension table"
+        config: 
+          materialized: stream
+          parameters:
+            store: ec2pg
+            'value.format': JSON
+            'postgresql.db.name': 'demo'
+            'postgresql.schema.name': 'public'
+            'postgresql.table.name': 'dim_customer'
+        columns:
+          - name: op
+            type: VARCHAR
+          - name: ts_ms
+            type: BIGINT
+          - name: 'before'
+            type: STRUCT<customer_id BIGINT, customer_name VARCHAR, address_city VARCHAR, address_state VARCHAR>
+          - name: 'after'
+            type: STRUCT<customer_id BIGINT, customer_name VARCHAR, address_city VARCHAR, address_state VARCHAR>
+          - name: 'source'
+            type: STRUCT<db VARCHAR, `schema` VARCHAR, `table` VARCHAR, `lsn` BIGINT>
+      - name : dim_store
+        description: "Store info dimension table"
+        config: 
+          materialized: stream
+          parameters:
+            store: ec2pg
+            'value.format': JSON
+            'postgresql.db.name': 'demo'
+            'postgresql.schema.name': 'public'
+            'postgresql.table.name': 'dim_store'
+        columns:
+          - name: op
+            type: VARCHAR
+          - name: ts_ms
+            type: BIGINT
+          - name: 'before'
+            type: STRUCT<store_id BIGINT, store_name VARCHAR, store_city VARCHAR, store_state VARCHAR>
+          - name: 'after'
+            type: STRUCT<store_id BIGINT, store_name VARCHAR, store_city VARCHAR, store_state VARCHAR>
+          - name: 'source'
+            type: STRUCT<db VARCHAR, `schema` VARCHAR, `table` VARCHAR, `lsn` BIGINT>

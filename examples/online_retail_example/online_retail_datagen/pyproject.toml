@@ -1,0 +1,53 @@
+[project]
+name = "online-retail-datagen"
+version = "0.1.0"
+description = "Data generator for DeltaStream online retail example using the SDK"
+authors = [
+    {name = "DeltaStream Team", email = "support@deltastream.io"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "python-dotenv>=1.0.0",
+    "deltastream-sdk",
+]
+
+[project.scripts]
+data-generator = "src.data_generator:main"
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[dependency-groups]
+dev = [
+    "mypy>=1.18.1",
+    "ruff>=0.13.0",
+]
+
