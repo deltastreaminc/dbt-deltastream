@@ -52,6 +52,45 @@ async def _list_entities_in_store(conn: APIConnection, store_name: str) -> list[
     return entities
 
 
+async def _list_stores(conn: APIConnection) -> list[str]:
+    """List all stores."""
+    stores: list[str] = []
+    try:
+        result = await conn.query("LIST STORES;")
+        async for row in result:
+            store_name = ""
+            if isinstance(row, dict):
+                store_name = row.get("Name", "") or row.get("name", "")
+            elif isinstance(row, list) and len(row) > 0:
+                store_name = str(row[0]) if row else ""
+            if store_name:
+                stores.append(store_name)
+    except Exception as e:
+        logger.warning("Could not list stores: %s", e)
+
+    return stores
+
+
+async def _list_integration_databases(conn: APIConnection) -> list[str]:
+    """List all databases matching the it_db* pattern."""
+    databases: list[str] = []
+    try:
+        result = await conn.query("LIST DATABASES;")
+        async for row in result:
+            db_name = ""
+            if isinstance(row, dict):
+                db_name = row.get("Name", "") or row.get("name", "")
+            elif isinstance(row, list) and len(row) > 0:
+                db_name = str(row[0]) if row else ""
+
+            if db_name and db_name.startswith("it_db"):
+                databases.append(db_name)
+    except Exception as e:
+        logger.warning("Could not list databases: %s", e)
+
+    return databases
+
+
 async def _drop_entity_if_exists(
     conn: APIConnection, entity_name: str, store_name: str
 ) -> bool:
@@ -536,6 +575,80 @@ def pytest_sessionfinish(session, exitstatus):
                     logger.error(
                         "[SESSION CLEANUP] Error dropping store %s: %s", store_name, e
                     )
+
+            # Clean up integration test entities with the IT prefix
+            entity_prefix = required.get("entity_name_prefix", "").strip()
+            if entity_prefix:
+                logger.info(
+                    "[SESSION CLEANUP] Cleaning up entities with prefix: %s",
+                    entity_prefix,
+                )
+
+                # List all stores to find entities
+                stores_result = await conn.query("LIST STORES;")
+                all_stores = []
+                async for row in stores_result:
+                    store_name = ""
+                    if isinstance(row, dict):
+                        store_name = row.get("Name", "") or row.get("name", "")
+                    elif isinstance(row, list) and len(row) > 0:
+                        store_name = str(row[0]) if row else ""
+                    if store_name:
+                        all_stores.append(store_name)
+
+                for store_name in all_stores:
+                    try:
+                        entities = await _list_entities_in_store(conn, store_name)
+                        prefixed_entities = [
+                            e for e in entities if e.startswith(entity_prefix)
+                        ]
+
+                        if prefixed_entities:
+                            logger.info(
+                                "[SESSION CLEANUP] Found %d entities with prefix '%s' in store %s",
+                                len(prefixed_entities),
+                                entity_prefix,
+                                store_name,
+                            )
+
+                        for entity_name in prefixed_entities:
+                            try:
+                                logger.info(
+                                    "[SESSION CLEANUP] Dropping entity: %s (store: %s)",
+                                    entity_name,
+                                    store_name,
+                                )
+                                drop_result = await conn.query(
+                                    f'DROP ENTITY "{entity_name}" IN STORE "{store_name}";'
+                                )
+                                async for _ in drop_result:
+                                    pass
+                                logger.info(
+                                    "[SESSION CLEANUP] Successfully dropped entity: %s",
+                                    entity_name,
+                                )
+                            except Exception as e:
+                                error_str = str(e).lower()
+                                if (
+                                    "does not exist" in error_str
+                                    or "not found" in error_str
+                                ):
+                                    logger.info(
+                                        "[SESSION CLEANUP] Entity %s does not exist, skipping",
+                                        entity_name,
+                                    )
+                                else:
+                                    logger.error(
+                                        "[SESSION CLEANUP] Error dropping entity %s: %s",
+                                        entity_name,
+                                        e,
+                                    )
+                    except Exception as e:
+                        logger.warning(
+                            "[SESSION CLEANUP] Could not process entities in store %s: %s",
+                            store_name,
+                            e,
+                        )
 
         except Exception as e:
             logger.error("[SESSION CLEANUP] Error during cleanup: %s", e)
