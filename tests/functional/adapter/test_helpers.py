@@ -9,7 +9,7 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from functools import wraps
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, TypeVar
 
 from deltastream.api.conn import APIConnection
 from deltastream.api.error import SQLError
@@ -85,11 +85,15 @@ class OperationTimeoutError(DeltaStreamCleanupError):
     pass
 
 
+# Type variable for the return type of decorated functions
+T = TypeVar("T")
+
+
 def retry_on_failure(
     max_wait_seconds: int = DEFAULT_MAX_WAIT_SECONDS,
     retry_interval_seconds: int = DEFAULT_RETRY_INTERVAL_SECONDS,
     retryable_exceptions: Optional[List[type]] = None,
-):
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """
     Decorator for retrying async operations on specific failures.
     Args:
@@ -101,9 +105,11 @@ def retry_on_failure(
     if retryable_exceptions is None:
         retryable_exceptions = [SQLError]
 
-    def decorator(func):
+    def decorator(
+        func: Callable[..., Awaitable[T]],
+    ) -> Callable[..., Awaitable[T]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
             start_time = time.time()
             last_error = ""
 
