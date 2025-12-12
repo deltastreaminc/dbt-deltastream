@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from collections.abc import Mapping
 from datetime import datetime
 import logging
@@ -13,6 +14,44 @@ from tests.functional.adapter.test_helpers import clean_database_with_children
 
 pytest_plugins = ["dbt.tests.fixtures.project"]
 
+
+def pytest_configure(config):
+    """
+    Configure logging to prevent duplicate log output.
+
+    Pytest's log_cli feature uses its own handlers (_LiveLoggingStreamHandler).
+    Some libraries (like dbt) add their own StreamHandlers to the root logger,
+    causing duplicate output. This hook removes plain StreamHandlers from the
+    root logger, letting pytest's logging plugin handle all output cleanly.
+    """
+    root_logger = logging.getLogger()
+
+    # Remove any plain StreamHandlers that would duplicate pytest's output
+    # Keep pytest's internal handlers (they have specific class names)
+    handlers_to_remove = []
+    for handler in root_logger.handlers:
+        handler_class_name = handler.__class__.__name__
+        # Only remove plain StreamHandler instances, not pytest's special handlers
+        if handler_class_name == "StreamHandler":
+            handlers_to_remove.append(handler)
+
+    for handler in handlers_to_remove:
+        root_logger.removeHandler(handler)
+
+    # Optional per-worker file logging for CI artifacts
+    log_dir = os.getenv("PYTEST_LOG_DIR", "").strip()
+    if log_dir:
+        Path(log_dir).mkdir(parents=True, exist_ok=True)
+        worker_id = os.getenv("PYTEST_XDIST_WORKER", "main")
+        log_path = Path(log_dir) / f"integration-{worker_id}.log"
+        file_handler = logging.FileHandler(log_path)
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s %(name)s:%(message)s")
+        )
+        root_logger.addHandler(file_handler)
+
+
 # Set up logger
 logger = logging.getLogger(__name__)
 
@@ -24,9 +63,11 @@ _ENV_NAMES: Mapping[str, str] = {
     "schema": "DELTASTREAM_SCHEMA",
     "store": "DELTASTREAM_STORE",  # Existing store to use (optional)
     "create_store": "DELTASTREAM_CREATE_STORE",  # Whether to create a store (true/false)
-    "create_store_sql": "DELTASTREAM_CREATE_STORE_SQL",  # SQL template for store creation
+    "create_store_sql": "DELTASTREAM_CREATE_STORE_SQL",  # SQL Template for store creation
     "entity_name_prefix": "DELTASTREAM_IT_PREFIX",  # Prefix for entity names
 }
+
+_SESSION_RUN_ID: str = ""
 
 
 async def _list_entities_in_store(conn: APIConnection, store_name: str) -> list[str]:
@@ -45,11 +86,57 @@ async def _list_entities_in_store(conn: APIConnection, store_name: str) -> list[
             if entity_name:
                 entities.append(entity_name)
     except Exception as e:
-        logger.warning(
-            "[SESSION SETUP] Could not list entities in store %s: %s", store_name, e
-        )
+        error_str = str(e).lower()
+        # Only log as warning for non-permission errors
+        if "access denied" in error_str or "authentication failed" in error_str:
+            logger.debug(
+                "[SESSION SETUP] No access to store %s (expected): %s", store_name, e
+            )
+        else:
+            logger.warning(
+                "[SESSION SETUP] Could not list entities in store %s: %s", store_name, e
+            )
 
     return entities
+
+
+async def _list_stores(conn: APIConnection) -> list[str]:
+    """List all stores."""
+    stores: list[str] = []
+    try:
+        result = await conn.query("LIST STORES;")
+        async for row in result:
+            store_name = ""
+            if isinstance(row, dict):
+                store_name = row.get("Name", "") or row.get("name", "")
+            elif isinstance(row, list) and len(row) > 0:
+                store_name = str(row[0]) if row else ""
+            if store_name:
+                stores.append(store_name)
+    except Exception as e:
+        logger.warning("Could not list stores: %s", e)
+
+    return stores
+
+
+async def _list_integration_databases(conn: APIConnection) -> list[str]:
+    """List all databases matching the it_db* pattern."""
+    databases: list[str] = []
+    try:
+        result = await conn.query("LIST DATABASES;")
+        async for row in result:
+            db_name = ""
+            if isinstance(row, dict):
+                db_name = row.get("Name", "") or row.get("name", "")
+            elif isinstance(row, list) and len(row) > 0:
+                db_name = str(row[0]) if row else ""
+
+            if db_name and db_name.startswith("it_db"):
+                databases.append(db_name)
+    except Exception as e:
+        logger.warning("Could not list databases: %s", e)
+
+    return databases
 
 
 async def _drop_entity_if_exists(
@@ -66,8 +153,25 @@ async def _drop_entity_if_exists(
         logger.info("[SESSION SETUP] Successfully dropped entity: %s", entity_name)
         return True
     except Exception as e:
-        logger.warning("[SESSION SETUP] Failed to drop entity %s: %s", entity_name, e)
-        return False
+        error_str = str(e).lower()
+        # Handle expected errors silently
+        if "does not exist" in error_str or "not found" in error_str:
+            logger.debug(
+                "[SESSION SETUP] Entity %s does not exist, skipping", entity_name
+            )
+            return True
+        # Handle Kafka-specific errors (topic already deleted or not on this server)
+        elif "this server does not host this topic-partition" in error_str:
+            logger.debug(
+                "[SESSION SETUP] Topic %s already deleted from Kafka, skipping",
+                entity_name,
+            )
+            return True
+        else:
+            logger.warning(
+                "[SESSION SETUP] Failed to drop entity %s: %s", entity_name, e
+            )
+            return False
 
 
 async def _create_entity(
@@ -123,17 +227,33 @@ async def _wait_for_store_ready(
 
 
 async def _setup_entities_for_integration_tests(
-    conn: APIConnection, store_name: str, entity_prefix: str = ""
-) -> None:
-    """Set up entities for integration tests by cleaning up existing ones and creating fresh ones."""
+    conn: APIConnection, store_name: str, entity_prefix: str = "", timestamp: str = ""
+) -> dict[str, str]:
+    """
+    Set up entities for integration tests with unique timestamped names.
+
+    Returns:
+        dict mapping base entity names to their full timestamped names
+    """
     # First wait for the store to be ready for basic operations
     await _wait_for_store_ready(conn, store_name)
 
     base_entities = ["pageviews", "users", "shipments"]
-    entities = [
-        f"{entity_prefix}{entity}" if entity_prefix else entity
-        for entity in base_entities
-    ]
+    # Create timestamped entity names: prefix + base + timestamp
+    # e.g., "dbte2e_pageviews_20251209_230244_033"
+    entity_names = {}
+    for entity in base_entities:
+        if entity_prefix and timestamp:
+            full_name = f"{entity_prefix}{entity}_{timestamp}"
+        elif entity_prefix:
+            full_name = f"{entity_prefix}{entity}"
+        elif timestamp:
+            full_name = f"{entity}_{timestamp}"
+        else:
+            full_name = entity
+        entity_names[entity] = full_name
+
+    entities = list(entity_names.values())
 
     # Try to list and drop existing entities, but don't fail if this doesn't work
     logger.info(
@@ -161,6 +281,8 @@ async def _setup_entities_for_integration_tests(
     # Now create the entities with retry logic for "not ready" errors
     for entity_name in entities:
         await _create_entity_with_retry(conn, entity_name, store_name)
+
+    return entity_names
 
 
 async def _create_entity_with_retry(
@@ -229,6 +351,76 @@ def _required_env() -> dict[str, str]:
     return {key: os.getenv(env_name, "") for key, env_name in _ENV_NAMES.items()}
 
 
+def _build_run_id() -> str:
+    """
+    Build a unique run identifier.
+
+    The timestamp is always included. When pytest-xdist is enabled we also
+    append the worker id (gw0, gw1, etc.) so concurrent workers never share
+    database/schema/store names.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+    worker_id = os.getenv("PYTEST_XDIST_WORKER", "").strip()
+    return f"{timestamp}_{worker_id}" if worker_id else timestamp
+
+
+async def _query_with_retry(
+    conn: APIConnection,
+    query: str,
+    max_retries: int = 3,
+    retry_delay: float = 2.0,
+) -> None:
+    """
+    Execute a query with retry logic for transient connection errors.
+
+    Args:
+        conn: DeltaStream API connection
+        query: SQL query to execute
+        max_retries: Maximum number of retry attempts
+        retry_delay: Delay between retries in seconds
+    """
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            result = await conn.query(query)
+            async for _ in result:
+                pass
+            return
+        except Exception as e:
+            last_error = e
+            error_str = str(e).lower()
+            # Check if this is a connection/network error that we should retry
+            is_connection_error = any(
+                keyword in error_str
+                for keyword in [
+                    "connection aborted",
+                    "remote end closed",
+                    "remotedisconnected",
+                    "protocolerror",
+                    "connection reset",
+                ]
+            )
+
+            if is_connection_error and attempt < max_retries - 1:
+                logger.warning(
+                    "[SESSION SETUP] Connection error on attempt %d/%d, retrying in %.1fs: %s",
+                    attempt + 1,
+                    max_retries,
+                    retry_delay,
+                    str(e)[:200],
+                )
+                await asyncio.sleep(retry_delay)
+                continue
+            else:
+                # Not a retryable error or max retries reached
+                raise
+
+    # If we get here, all retries failed
+    raise Exception(
+        f"Query failed after {max_retries} attempts. Last error: {last_error}"
+    )
+
+
 def _get_deltastream_connection() -> APIConnection:
     """
     Create a DeltaStream API connection using environment variables.
@@ -267,6 +459,14 @@ def dbt_profile_target() -> str:
 
 
 @pytest.fixture(scope="session")
+def integration_run_id(integration_test_resources) -> str:
+    """
+    Expose the session run identifier so other fixtures can namespace resources.
+    """
+    return _SESSION_RUN_ID
+
+
+@pytest.fixture(scope="session")
 def integration_test_resources():
     """
     Create integration test database, schema, and optionally store at session start.
@@ -287,10 +487,12 @@ def integration_test_resources():
             f"{', '.join(missing_envs)}. Configure these as environment variables."
         )
 
-    # Generate unique database and schema names
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
-    db_name = f"it_db_{timestamp}"
-    schema_name = f"it_schema_{timestamp}"
+    # Generate unique database and schema names (include xdist worker id if present)
+    run_id = _build_run_id()
+    global _SESSION_RUN_ID
+    _SESSION_RUN_ID = run_id
+    db_name = f"it_db_{run_id}"
+    schema_name = f"it_schema_{run_id}"
 
     # Determine store configuration
     create_store = required.get("create_store", "").lower() in ("true", "1", "yes")
@@ -299,7 +501,7 @@ def integration_test_resources():
 
     if create_store:
         # Generate unique store name for integration tests
-        store_name = f"it_store_{timestamp}"
+        store_name = f"it_store_{run_id}"
         logger.info(
             "[SESSION SETUP] Will create integration test store: %s", store_name
         )
@@ -318,18 +520,14 @@ def integration_test_resources():
     async def create_resources():
         conn = _get_deltastream_connection()
         try:
-            # Create database
-            result = await conn.query(f"CREATE DATABASE {db_name};")
-            async for _ in result:
-                pass
+            # Create database with retry for connection errors
+            await _query_with_retry(conn, f"CREATE DATABASE {db_name};")
             logger.info("[SESSION SETUP] Successfully created database: %s", db_name)
 
-            # Create schema
-            result = await conn.query(
-                f"CREATE SCHEMA {schema_name} IN DATABASE {db_name};"
+            # Create schema with retry for connection errors
+            await _query_with_retry(
+                conn, f"CREATE SCHEMA {schema_name} IN DATABASE {db_name};"
             )
-            async for _ in result:
-                pass
             logger.info("[SESSION SETUP] Successfully created schema: %s", schema_name)
 
             # Create store if requested
@@ -347,51 +545,156 @@ def integration_test_resources():
                 logger.info(
                     "[SESSION SETUP] Creating store with SQL: %s", create_store_sql
                 )
-                result = await conn.query(create_store_sql)
-                async for _ in result:
-                    pass
+                await _query_with_retry(conn, create_store_sql)
                 logger.info(
                     "[SESSION SETUP] Successfully created store: %s", store_name
                 )
 
-                # Create entities for integration tests
+            # Create entities for integration tests (if we have a store)
+            entity_names = {}
+            if store_name:
                 entity_prefix = required.get("entity_name_prefix", "").strip()
-                await _setup_entities_for_integration_tests(
-                    conn, store_name, entity_prefix
+                entity_names = await _setup_entities_for_integration_tests(
+                    conn, store_name, entity_prefix, run_id
                 )
 
-            return db_name, schema_name, store_name
+            return db_name, schema_name, store_name, entity_names, run_id
         except Exception as e:
             logger.error("[SESSION SETUP] Failed to create resources: %s", e)
             raise e
 
     try:
-        db_name, schema_name, store_name = asyncio.run(create_resources())
+        db_name, schema_name, store_name, entity_names, session_timestamp = asyncio.run(
+            create_resources()
+        )
     except Exception as e:
         pytest.fail(f"Failed to create integration test resources: {e}")
 
     # Yield the names for use by other fixtures
-    yield db_name, schema_name, store_name
+    # entity_names is a dict like {"pageviews": "dbte2e_pageviews_20251209_230244_033", ...}
+    yield db_name, schema_name, store_name, entity_names
 
     # Cleanup at end of session
+    logger.info("[SESSION CLEANUP] ============================================")
     logger.info("[SESSION CLEANUP] Cleaning up integration test resources...")
     logger.info("[SESSION CLEANUP] Starting cleanup for database: %s", db_name)
-    results = clean_database_with_children(
-        database=db_name, drop_schemas=True, drop_database=True
-    )
-    logger.info(
-        "[SESSION CLEANUP] Cleanup completed. Dropped %d resources.",
-        len(results["dropped"]),
-    )
-    if results["failed"]:
-        logger.warning(
-            "[SESSION CLEANUP] Warning: %d resources failed to drop: %s",
-            len(results["failed"]),
-            results["failed"],
+
+    # Step 1: Clean up ALL entities from this session.
+    # If a prefix is configured, require both prefix and run id in the name.
+    # If no prefix is set, fallback to matching the run id anywhere in the name.
+    entity_prefix = required.get("entity_name_prefix", "").strip()
+    if store_name:
+        logger.info(
+            "[SESSION CLEANUP] Cleaning up all entities with prefix '%s' from store: %s",
+            entity_prefix or session_timestamp,
+            store_name,
         )
-    if results["errors"]:
-        logger.error("[SESSION CLEANUP] Errors: %s", results["errors"])
-        raise Exception(f"Cleanup failed with errors: {results['errors']}")
+
+        async def cleanup_session_entities():
+            conn = _get_deltastream_connection()
+            try:
+                # List ALL entities in the store and filter by prefix
+                all_entities = await _list_entities_in_store(conn, store_name)
+
+                # Find entities that belong to this session
+                if entity_prefix:
+                    entities_to_drop = [
+                        entity
+                        for entity in all_entities
+                        if entity.startswith(entity_prefix)
+                        and session_timestamp in entity
+                    ]
+                else:
+                    entities_to_drop = [
+                        entity for entity in all_entities if session_timestamp in entity
+                    ]
+
+                logger.info(
+                    "[SESSION CLEANUP] Found %d entities with prefix '%s' to clean up",
+                    len(entities_to_drop),
+                    entity_prefix or session_timestamp,
+                )
+
+                # Drop all entities with our prefix
+                for entity_name in entities_to_drop:
+                    try:
+                        logger.info(
+                            "[SESSION CLEANUP] Dropping entity: %s (store: %s)",
+                            entity_name,
+                            store_name,
+                        )
+                        drop_result = await conn.query(
+                            f'DROP ENTITY "{entity_name}" IN STORE "{store_name}";'
+                        )
+                        async for _ in drop_result:
+                            pass
+                        logger.info(
+                            "[SESSION CLEANUP] Successfully dropped entity: %s",
+                            entity_name,
+                        )
+                    except Exception as e:
+                        error_str = str(e).lower()
+                        if "does not exist" in error_str or "not found" in error_str:
+                            logger.debug(
+                                "[SESSION CLEANUP] Entity %s does not exist, skipping",
+                                entity_name,
+                            )
+                        elif (
+                            "this server does not host this topic-partition"
+                            in error_str
+                        ):
+                            logger.debug(
+                                "[SESSION CLEANUP] Topic %s already deleted, skipping",
+                                entity_name,
+                            )
+                        else:
+                            logger.warning(
+                                "[SESSION CLEANUP] Error dropping entity %s: %s",
+                                entity_name,
+                                e,
+                            )
+            except Exception as e:
+                logger.warning(
+                    "[SESSION CLEANUP] Could not process entities in store %s: %s",
+                    store_name,
+                    e,
+                )
+
+        try:
+            asyncio.run(cleanup_session_entities())
+        except Exception as e:
+            logger.error("[SESSION CLEANUP] Failed to clean up entities: %s", e)
+
+    # Step 2: Clean up database and all its resources
+    # Note: Entities created by individual tests (with unique timestamps) are NOT
+    # cleaned up here to avoid interfering with parallel test runs. They will be
+    # cleaned up when their references (streams/relations) are dropped from the database.
+    try:
+        # Only clean resources with 'it_' prefix to avoid deleting shared resources
+        # This is critical for global resources like DESCRIPTOR_SOURCE
+        # Drop everything inside this dedicated integration test database.
+        results = clean_database_with_children(
+            database=db_name,
+            fingerprint=session_timestamp,
+            drop_schemas=True,
+            drop_database=True,
+        )
+        logger.info(
+            "[SESSION CLEANUP] Cleanup completed. Dropped %d resources.",
+            len(results["dropped"]),
+        )
+        if results["failed"]:
+            logger.warning(
+                "[SESSION CLEANUP] Warning: %d resources failed to drop: %s",
+                len(results["failed"]),
+                results["failed"],
+            )
+        if results["errors"]:
+            logger.error("[SESSION CLEANUP] Errors: %s", results["errors"])
+    except Exception as e:
+        logger.error("[SESSION CLEANUP] Failed to clean up database %s: %s", db_name, e)
+    finally:
+        logger.info("[SESSION CLEANUP] ============================================")
 
 
 @pytest.fixture(scope="session")
@@ -404,7 +707,7 @@ def dbt_profile_data(dbt_profile_target, integration_test_resources):
     ]
 
     # For integration tests, use the dynamically created resources
-    db_name, schema_name, store_name = integration_test_resources
+    db_name, schema_name, store_name, _ = integration_test_resources
 
     if missing_envs:
         # Only skip if we don't have token/org_id (database/schema are handled above)
@@ -444,103 +747,3 @@ def dbt_profile_data(dbt_profile_target, integration_test_resources):
     }
     logger.debug("DEBUG: dbt_profile_data output: %s", output)
     return output
-
-
-def pytest_sessionfinish(session, exitstatus):
-    """
-    Hook that runs at the end of the test session to clean up any remaining integration test databases and stores.
-    This ensures cleanup happens even if tests fail or are interrupted.
-    """
-    # Check if we have the required credentials
-    required = _required_env()
-    if not required.get("token") or not required.get("organization_id"):
-        logger.info(
-            "[SESSION CLEANUP] Skipping cleanup - missing DeltaStream credentials"
-        )
-        return
-
-    logger.info(
-        "[SESSION CLEANUP] Running final cleanup of all integration test databases and stores..."
-    )
-
-    async def cleanup_all():
-        conn = _get_deltastream_connection()
-        try:
-            # List all databases and clean them up
-            result = await conn.query("LIST DATABASES;")
-            it_databases = []
-            async for row in result:
-                db_name = ""
-                if isinstance(row, dict):
-                    db_name = row.get("Name", "") or row.get("name", "")
-                elif isinstance(row, list) and len(row) > 0:
-                    db_name = str(row[0]) if row else ""
-
-                if db_name and db_name.startswith("it_db"):
-                    it_databases.append(db_name)
-
-            logger.info(
-                "[SESSION CLEANUP] Found %d integration test databases to clean",
-                len(it_databases),
-            )
-
-            for db_name in it_databases:
-                try:
-                    logger.info("[SESSION CLEANUP] Cleaning database: %s", db_name)
-                    results = clean_database_with_children(
-                        database=db_name, drop_schemas=True, drop_database=True
-                    )
-                    logger.info(
-                        "[SESSION CLEANUP] Dropped %d resources from %s",
-                        len(results["dropped"]),
-                        db_name,
-                    )
-                    if results["failed"] or results["errors"]:
-                        logger.warning(
-                            "[SESSION CLEANUP] Issues with %s: failed=%s, errors=%s",
-                            db_name,
-                            results["failed"],
-                            results["errors"],
-                        )
-                except Exception as e:
-                    logger.error("[SESSION CLEANUP] Error cleaning %s: %s", db_name, e)
-
-            # List and clean up integration test stores
-            result = await conn.query("LIST STORES;")
-            it_stores = []
-            async for row in result:
-                store_name = ""
-                if isinstance(row, dict):
-                    store_name = row.get("Name", "") or row.get("name", "")
-                elif isinstance(row, list) and len(row) > 0:
-                    store_name = str(row[0]) if row else ""
-
-                if store_name and store_name.startswith("it_store"):
-                    it_stores.append(store_name)
-
-            logger.info(
-                "[SESSION CLEANUP] Found %d integration test stores to clean",
-                len(it_stores),
-            )
-
-            for store_name in it_stores:
-                try:
-                    logger.info("[SESSION CLEANUP] Dropping store: %s", store_name)
-                    drop_result = await conn.query(f"DROP STORE {store_name};")
-                    async for _ in drop_result:
-                        pass
-                    logger.info(
-                        "[SESSION CLEANUP] Successfully dropped store: %s", store_name
-                    )
-                except Exception as e:
-                    logger.error(
-                        "[SESSION CLEANUP] Error dropping store %s: %s", store_name, e
-                    )
-
-        except Exception as e:
-            logger.error("[SESSION CLEANUP] Error during cleanup: %s", e)
-
-    try:
-        asyncio.run(cleanup_all())
-    except Exception as e:
-        logger.error("[SESSION CLEANUP] Final cleanup failed: %s", e)
