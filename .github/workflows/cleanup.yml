@@ -1,0 +1,76 @@
+name: Manual Cleanup
+run-name: Manual Cleanup of Integration Test Resources
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (list resources without deleting)"
+        required: false
+        type: boolean
+        default: false
+      entity_prefix:
+        description: "Entity prefix to clean (e.g., dbte2e_)"
+        required: false
+        type: string
+        default: "dbte2e_"
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    env:
+      DELTASTREAM_API_TOKEN: ${{ secrets.DELTASTREAM_API_TOKEN }}
+      DELTASTREAM_ORGANIZATION_ID: ${{ secrets.DELTASTREAM_ORGANIZATION_ID }}
+      DELTASTREAM_URL: ${{ secrets.DELTASTREAM_URL }}
+      DELTASTREAM_STORE: ${{ secrets.DELTASTREAM_STORE }}
+      DELTASTREAM_IT_PREFIX: ${{ inputs.entity_prefix }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install dependencies
+        run: make install
+
+      - name: Validate credentials
+        run: |
+          missing=0
+          for var in DELTASTREAM_API_TOKEN DELTASTREAM_ORGANIZATION_ID DELTASTREAM_STORE; do
+            if [ -z "${!var}" ]; then
+              echo "::error::Missing required secret: $var"
+              missing=1
+            else
+              echo "$var is configured"
+            fi
+          done
+
+          if [ "$missing" -eq 1 ]; then
+            exit 1
+          fi
+
+          echo "Entity prefix: $DELTASTREAM_IT_PREFIX"
+          echo "Store: $DELTASTREAM_STORE"
+          echo "Dry run: ${{ inputs.dry_run }}"
+
+      - name: Run cleanup
+        run: |
+          ARGS="--entity-prefix ${{ inputs.entity_prefix }}"
+
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+
+          echo "Running cleanup with args: $ARGS"
+          uv run python scripts/cleanup_integration_resources.py $ARGS
