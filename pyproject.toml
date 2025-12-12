@@ -37,6 +37,7 @@ dev = [
   "dbt-tests-adapter @ git+https://github.com/dbt-labs/dbt-adapters.git#subdirectory=dbt-tests-adapter",
   "pytest>=8.3.4",
   "pytest-cov>=6.0.0",
+  "pytest-xdist>=3.6.1",
   "tox>=3.9.0",
   "flake8>=4.0.0",
   "types-python-dateutil>=2.8.19.14",
@@ -90,6 +91,13 @@ addopts = [
     "--cov-report=term-missing",
     "--cov-report=html",
 ]
+# Logging configuration - use log_cli for live output
+log_cli = true
+log_cli_level = "INFO"
+log_cli_format = "%(levelname)s:%(name)s:%(message)s"
+# Capture logs at INFO level  
+log_level = "INFO"
+
 
 [tool.pylint]
 max-line-length = 88
