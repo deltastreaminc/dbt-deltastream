@@ -8,7 +8,8 @@ Compute pools are dedicated compute resource pools in DeltaStream.
 import logging
 import pytest
 from datetime import datetime
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ sources:
         write_file(sources_yml, project.project_root, "models", "sources.yml")
 
         logger.info("Step 1: Creating compute pool %s...", pool_name)
-        run_dbt(["run-operation", "create_sources"], expect_pass=True)
+        run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
 
         # Step 2: Update the compute pool
         # Note: Update operations may modify the pool's configuration
@@ -70,7 +71,7 @@ sources:
             write_file(
                 sources_yml_updated, project.project_root, "models", "sources.yml"
             )
-            run_dbt(["run-operation", "create_sources"], expect_pass=True)
+            run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
         except Exception as e:
             logger.warning("Failed to update compute pool %s: %s", pool_name, e)
 
@@ -78,7 +79,7 @@ sources:
         # Compute pools need to be stopped before they can be dropped
         logger.info("Step 3: Stopping compute pool %s...", pool_name)
         try:
-            run_dbt(
+            run_dbt_with_retry(
                 [
                     "run-operation",
                     "run_query",
@@ -95,7 +96,7 @@ sources:
         # DROP COMPUTE_POOL is implemented in the backend
         logger.info("Step 4: Dropping compute pool %s...", pool_name)
         try:
-            run_dbt(
+            run_dbt_with_retry(
                 [
                     "run-operation",
                     "run_query",

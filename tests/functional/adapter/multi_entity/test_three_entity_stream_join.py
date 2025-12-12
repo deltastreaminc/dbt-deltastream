@@ -8,7 +8,8 @@ Resources are automatically cleaned up by the session-level fixture in conftest.
 
 import pytest
 from datetime import datetime
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 
 
 @pytest.mark.integration
@@ -96,7 +97,7 @@ sources:
 """.lstrip()
 
     write_file(sources_yml, project.project_root, "models", "sources.yml")
-    run_dbt(["run-operation", "create_sources"], expect_pass=True)
+    run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
 
     # Create a joined stream combining data from all three entities
     # Join pageviews with users, and include shipments data
@@ -123,4 +124,4 @@ JOIN {{{{ source('integration_tests', '{users_changelog}') }}}} u ON u.userid = 
     write_file(model_sql, project.project_root, "models", f"{joined_stream}.sql")
 
     # Run dbt to create the joined stream
-    run_dbt(["run"], expect_pass=True)
+    run_dbt_with_retry(["run"], expect_pass=True)

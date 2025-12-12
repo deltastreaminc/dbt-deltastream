@@ -7,7 +7,8 @@ Resources are automatically cleaned up by the session-level fixture in conftest.
 """
 
 import pytest
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 from tests.functional.adapter.test_helpers import generate_timestamp_suffix
 
 
@@ -84,7 +85,7 @@ sources:
 """.lstrip()
 
         write_file(sources_yml, project.project_root, "models", sources_file)
-        run_dbt(["run-operation", "create_sources"], expect_pass=True)
+        run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
 
         # Create joined stream with explicit topic using entity prefix
         joined_sql = f"""
@@ -133,4 +134,4 @@ GROUP BY window_start, window_end, regionid, gender
         write_file(mv_sql, project.project_root, "models", f"{mv_name}.sql")
 
         # Run dbt to create both stream and materialized view
-        run_dbt(["run"], expect_pass=True)
+        run_dbt_with_retry(["run"], expect_pass=True)

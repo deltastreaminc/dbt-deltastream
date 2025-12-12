@@ -31,7 +31,6 @@ Integration tests for dbt-deltastream use a **session-scoped resource management
 3. **Session Cleanup** (`tests/conftest.py`):
    - At the end of the session, `clean_database_with_children()` removes all resources
    - Handles dependencies correctly (drops relations before schemas, schemas before databases)
-   - Also runs a final cleanup hook (`pytest_sessionfinish`) to catch any orphaned databases
 
 ### Fixtures
 
@@ -125,6 +124,9 @@ This command:
 - Automatically loads environment variables from `.env` if present
 - Runs all tests marked with `@pytest.mark.integration`
 - Creates/cleans up session-level database and schema
+- Executes tests in parallel by default (`-n auto --dist loadfile`) via
+  `PYTEST_ADDOPTS`. Override to disable parallelism or tune workers, e.g.:
+  `PYTEST_ADDOPTS="" make integration-tests`
 
 #### Run Specific Test File
 
@@ -230,6 +232,9 @@ This ensures:
 - Tests can run in parallel without conflicts
 - Resources are identifiable for debugging
 - Cleanup can target test resources specifically
+- Session fixtures already append a per-run (and per-worker, when xdist is
+  enabled) suffix to databases, schemas, stores, and seed entities—reuse those
+  fixtures instead of hard-coding names.
 
 #### 2. **Use Fixtures for Database/Schema Context**
 
@@ -344,9 +349,12 @@ drop_relation_with_retry(
 # Terminate queries before dropping resources
 terminate_all_queries(database=integration_database, schema=integration_schema)
 
-# Full database cleanup (used by session fixture)
+# Full database cleanup (used by session fixture); pass the session timestamp
+# so only resources from this run are dropped, including global ones.
+session_timestamp = "20251210_080922_484"
 results = clean_database_with_children(
     database=integration_database,
+    fingerprint=session_timestamp,
     drop_schemas=True,
     drop_database=True,
 )

@@ -9,7 +9,8 @@ Resources are automatically cleaned up by the session-level fixture in conftest.
 
 import pytest
 from datetime import datetime
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 
 
 class TestCreateEntityDeltastream:
@@ -56,6 +57,6 @@ sources:
         write_file(sources_yml, project.project_root, "models", "sources.yml")
 
         # Run the operation to create sources
-        run_dbt(["run-operation", "create_sources"], expect_pass=True)
+        run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
 
         # Session-level cleanup will handle resource deletion

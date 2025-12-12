@@ -1,5 +1,10 @@
 .PHONY: help install lint format check-format mypy test unit-tests integration-tests build ci clean jupyter activate
 
+# Default pytest options (can be overridden):
+# - Parallelize integration suite with xdist using file-based distribution
+# - Emit live logs from workers (INFO level) with consistent formatting
+PYTEST_ADDOPTS ?= -n auto --dist loadfile --log-cli-level=INFO --log-cli-format="%(levelname)s:%(name)s:%(message)s"
+
 # Default target
 help:
 	@echo "Available targets:"
@@ -50,9 +55,9 @@ unit-tests:
 integration-tests:
 	@if [ -f .env ]; then \
 		echo "Loading environment variables from .env file..."; \
-		eval $$(cat .env | grep -v '^#' | grep -v '^$$' | sed 's/=/="/; s/$$/"/; s/^/export /' | tr '\n' ';') && uv run pytest -q tests/functional/adapter -s -m integration; \
+		eval $$(cat .env | grep -v '^#' | grep -v '^$$' | sed 's/=/="/; s/$$/"/; s/^/export /' | tr '\n' ';') && uv run pytest $(PYTEST_ADDOPTS) tests/functional/adapter -s -m integration; \
 	else \
-		uv run pytest -q tests/functional/adapter -s -m integration; \
+		uv run pytest $(PYTEST_ADDOPTS) tests/functional/adapter -s -m integration; \
 	fi
 
 # Run a single integration test file
@@ -63,9 +68,9 @@ integration-test:
 	fi; \
 	if [ -f .env ]; then \
 		echo "Loading environment variables from .env file..."; \
-		eval $$(cat .env | grep -v '^#' | grep -v '^$$' | sed 's/=/="/; s/$$/"/; s/^/export /' | tr '\n' ';') && uv run pytest -q $(TEST_FILE) -s -m integration; \
+		eval $$(cat .env | grep -v '^#' | grep -v '^$$' | sed 's/=/="/; s/$$/"/; s/^/export /' | tr '\n' ';') && uv run pytest $(PYTEST_ADDOPTS) $(TEST_FILE) -s -m integration; \
 	else \
-		uv run pytest -q $(TEST_FILE) -s -m integration; \
+		uv run pytest $(PYTEST_ADDOPTS) $(TEST_FILE) -s -m integration; \
 	fi
 
 # Build package

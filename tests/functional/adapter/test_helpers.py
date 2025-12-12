@@ -9,16 +9,20 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from functools import wraps
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Literal, Optional, TypeVar
 
 from deltastream.api.conn import APIConnection
 from deltastream.api.error import SQLError
+from dbt.tests.util import run_dbt as _run_dbt
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Configuration constants
-DEFAULT_MAX_WAIT_SECONDS = int(os.environ.get("DELTASTREAM_MAX_WAIT_SECONDS", "300"))
+DEFAULT_MAX_WAIT_SECONDS = int(os.environ.get("DELTASTREAM_MAX_WAIT_SECONDS", "30"))
+TERMINATE_MAX_WAIT_SECONDS = int(
+    os.environ.get("DELTASTREAM_TERMINATE_MAX_WAIT_SECONDS", "120")
+)
 DEFAULT_RETRY_INTERVAL_SECONDS = int(os.environ.get("DELTASTREAM_RETRY_INTERVAL", "5"))
 DEFAULT_API_URL = os.environ.get("DELTASTREAM_URL", "https://api.deltastream.io/v2")
 
@@ -53,6 +57,8 @@ RESOURCE_TYPES = {
 
 # Dependency order for dropping resources (most dependent first)
 # Note: Do not drop ENTITYs as they may cause authorization issues with topics
+# Note: DESCRIPTOR_SOURCE and FUNCTION_SOURCE are global/organization-level resources.
+#       Integration tests name them with an `it_` prefix so cleanup can safely remove them.
 DROP_ORDER = [
     "RELATION",  # Materialized views, tables, views
     "STREAM",  # Streaming resources
@@ -85,11 +91,15 @@ class OperationTimeoutError(DeltaStreamCleanupError):
     pass
 
 
+# Type variable for the return type of decorated functions
+T = TypeVar("T")
+
+
 def retry_on_failure(
     max_wait_seconds: int = DEFAULT_MAX_WAIT_SECONDS,
     retry_interval_seconds: int = DEFAULT_RETRY_INTERVAL_SECONDS,
     retryable_exceptions: Optional[List[type]] = None,
-):
+) -> Callable[[Callable[..., Awaitable[T]]], Callable[..., Awaitable[T]]]:
     """
     Decorator for retrying async operations on specific failures.
     Args:
@@ -101,9 +111,11 @@ def retry_on_failure(
     if retryable_exceptions is None:
         retryable_exceptions = [SQLError]
 
-    def decorator(func):
+    def decorator(
+        func: Callable[..., Awaitable[T]],
+    ) -> Callable[..., Awaitable[T]]:
         @wraps(func)
-        async def wrapper(*args, **kwargs):
+        async def wrapper(*args: Any, **kwargs: Any) -> T:
             start_time = time.time()
             last_error = ""
 
@@ -268,6 +280,8 @@ RESOURCE_TYPES = {
 
 # Dependency order for dropping resources (most dependent first)
 # Note: Do not drop ENTITYs as they may cause authorization issues with topics
+# Note: DESCRIPTOR_SOURCE and FUNCTION_SOURCE are global/organization-level resources.
+#       Integration tests name them with an `it_` prefix so cleanup can safely remove them.
 DROP_ORDER = [
     "RELATION",  # Materialized views, tables, views
     "STREAM",  # Streaming resources
@@ -330,8 +344,24 @@ async def drop_relation_with_retry_async(
     # Validate input
     relation_name = validate_resource_name(relation_name)
 
-    # Always use DROP RELATION for all relation types
-    sql = f"DROP RELATION {relation_name};"
+    # Use the appropriate DROP command based on resource type
+    # Map resource types to their drop commands
+    drop_commands = {
+        "DESCRIPTOR_SOURCE": "DROP DESCRIPTOR_SOURCE",
+        "FUNCTION_SOURCE": "DROP FUNCTION_SOURCE",
+        "FUNCTION": "DROP FUNCTION",
+        "COMPUTE_POOL": "DROP COMPUTE_POOL",
+        "STORE": "DROP STORE",
+        "ENTITY": "DROP ENTITY",
+        # All relation types use DROP RELATION
+        "RELATION": "DROP RELATION",
+        "STREAM": "DROP RELATION",
+        "CHANGELOG": "DROP RELATION",
+    }
+
+    # Get the appropriate drop command, defaulting to DROP RELATION
+    drop_cmd = drop_commands.get(relation_type, "DROP RELATION")
+    sql = f"{drop_cmd} {relation_name};"
 
     try:
         async with get_deltastream_connection(database, schema) as conn:
@@ -389,6 +419,45 @@ async def drop_schema_with_retry_async(
     schema = validate_resource_name(schema)
     database = validate_resource_name(database)
 
+    async def _purge_relations_in_schema() -> None:
+        """
+        Best-effort purge of any remaining relations in the schema before dropping it.
+        This protects the drop operation from failing with referenced-relation errors
+        if the earlier cleanup loop missed anything.
+        """
+        try:
+            relations = list_resources("RELATION", database, schema)
+            for relation in relations:
+                relation_schema = relation.get("Schema") or relation.get("schema")
+                if relation_schema and relation_schema != schema:
+                    continue
+
+                relation_name = relation.get("Name") or relation.get("name")
+                relation_type = (
+                    relation.get("Type") or relation.get("type") or "RELATION"
+                )
+                if not relation_name:
+                    continue
+
+                fully_qualified_name = f"{database}.{schema}.{relation_name}"
+                await drop_relation_with_retry_async(
+                    fully_qualified_name,
+                    relation_type.upper(),
+                    database=database,
+                    schema=schema,
+                    max_wait_seconds=max_wait_seconds,
+                    retry_interval_seconds=retry_interval_seconds,
+                )
+        except Exception as purge_error:
+            logger.warning(
+                "Could not purge relations in schema %s before drop: %s",
+                schema,
+                purge_error,
+            )
+
+    # Make sure the schema is empty before attempting the drop
+    await _purge_relations_in_schema()
+
     sql = f"DROP SCHEMA {schema};"
 
     try:
@@ -440,6 +509,31 @@ async def drop_database_with_retry_async(
     # Validate input
     database = validate_resource_name(database)
 
+    async def _drop_child_schemas() -> None:
+        """
+        Best-effort schema cleanup to avoid referenced-relation errors when dropping
+        the database directly (e.g., if schema cleanup previously timed out).
+        """
+        try:
+            schemas = list_schemas(database)
+            for schema_name in schemas:
+                if schema_name.lower() in PROTECTED_SCHEMAS:
+                    continue
+                await drop_schema_with_retry_async(
+                    schema_name,
+                    database,
+                    max_wait_seconds=max_wait_seconds,
+                    retry_interval_seconds=retry_interval_seconds,
+                )
+        except Exception as purge_error:
+            logger.warning(
+                "Could not drop child schemas for database %s before drop: %s",
+                database,
+                purge_error,
+            )
+
+    await _drop_child_schemas()
+
     sql = f"DROP DATABASE {database};"
 
     try:
@@ -477,7 +571,7 @@ def cleanup_resources(
     # First, try to terminate all running queries to allow resources to be dropped
     try:
         logger.info("Terminating running queries before cleanup...")
-        terminate_all_queries(database, schema)
+        terminate_all_queries(database, schema, max_wait_seconds=max_wait_seconds)
         # Give queries a moment to terminate
         time.sleep(2)
     except Exception as e:
@@ -678,13 +772,16 @@ def list_schemas(database: str) -> list[str]:
 
 
 def terminate_all_queries(
-    database: Optional[str] = None, schema: Optional[str] = None
+    database: Optional[str] = None,
+    schema: Optional[str] = None,
+    max_wait_seconds: int = TERMINATE_MAX_WAIT_SECONDS,
 ) -> bool:
     """
     Terminate all running queries using direct API.
     Args:
         database: Optional database name
         schema: Optional schema name
+        max_wait_seconds: Maximum time to wait for termination
     Returns:
         True if successful, False otherwise
     """
@@ -694,9 +791,12 @@ def terminate_all_queries(
         try:
             logger.info("Terminating all running queries...")
 
-            # Terminate queries multiple times to handle any that might be created during termination
-            for attempt in range(3):
-                logger.info("Query termination attempt %d/3...", attempt + 1)
+            start_time = time.time()
+            attempt = 1
+
+            # Terminate queries until none remain or timeout is reached
+            while True:
+                logger.info("Query termination attempt %d...", attempt)
 
                 # First, list all running queries
                 result = await conn.query("LIST QUERIES;")
@@ -717,8 +817,8 @@ def terminate_all_queries(
                         query_ids.append(str(row[0]))
 
                 if not query_ids:
-                    logger.info("No running queries found on attempt %d", attempt + 1)
-                    break
+                    logger.info("No running queries found on attempt %d", attempt)
+                    return True
 
                 logger.info("Found %d running queries to terminate", len(query_ids))
 
@@ -740,16 +840,20 @@ def terminate_all_queries(
                     "Terminated %d/%d queries on attempt %d",
                     terminated_count,
                     len(query_ids),
-                    attempt + 1,
+                    attempt,
                 )
 
-                # Wait a bit before checking again
-                if attempt < 2:  # Don't wait after the last attempt
-                    await asyncio.sleep(3)
+                elapsed = time.time() - start_time
+                if elapsed >= max_wait_seconds:
+                    logger.warning(
+                        "Queries still running after %.0fs; proceeding with cleanup",
+                        elapsed,
+                    )
+                    return False
 
-            # Final wait to ensure all terminations have taken effect
-            await asyncio.sleep(2)
-            return True
+                # Wait a bit before checking again
+                await asyncio.sleep(3)
+                attempt += 1
         except Exception as e:
             logger.warning("Could not terminate queries: %s", e)
             return False
@@ -773,12 +877,10 @@ def clean_database_with_children(
     2. Listing and dropping all resources in dependency order
     3. Optionally dropping all schemas (if drop_schemas=True)
     4. Optionally dropping the database itself (if drop_database=True)
-    5. Only dropping resources that match the fingerprint (if provided)
+    5. Optionally filtering resources by a fingerprint (e.g., timestamp) when provided
     Args:
         database: Name of the database to clean
         schema: Optional specific schema to clean (if None, cleans all schemas)
-        fingerprint: Optional fingerprint to filter resources (e.g., timestamp)
-                    Only resources containing this string will be dropped
         drop_schemas: If True, drop all schemas after resources
         drop_database: If True, drop the database after schemas
         max_wait_seconds: Maximum time to wait for each resource
@@ -792,6 +894,10 @@ def clean_database_with_children(
         }
     """
     results: Dict[str, List[str]] = {"dropped": [], "failed": [], "errors": []}
+
+    # Track database state throughout cleanup
+    database_exists = True
+    database_was_dropped = False
 
     logger.info("=" * 80)
     logger.info("Starting comprehensive cleanup for database: %s", database)
@@ -810,27 +916,30 @@ def clean_database_with_children(
     try:
         # Try to list schemas to verify database exists
         list_schemas(database)
-        logger.info("  Database %s exists, proceeding with cleanup", database)
+        logger.info("  ✓ Database %s exists, proceeding with cleanup", database)
     except Exception as e:
-        logger.warning("Database %s does not exist or is invalid: %s", database, e)
+        database_exists = False
+        error_msg = str(e).lower()
+        if "invalid database" in error_msg or "does not exist" in error_msg:
+            logger.info(
+                "  ℹ Database %s does not exist - nothing to clean up", database
+            )
+        else:
+            logger.warning(
+                "  ⚠ Could not verify database %s existence: %s", database, e
+            )
         logger.info("  Skipping cleanup for non-existent database")
         return results  # Return empty results if database doesn't exist
 
     # Step 1: Terminate all running queries
     logger.info("[CLEANUP] Step 1: Terminating running queries...")
-    terminate_all_queries(database, schema)
+    terminate_all_queries(database, schema, max_wait_seconds=max_wait_seconds)
 
     # Step 2: Drop resources in dependency order
     logger.info("[CLEANUP] Step 2: Dropping resources in dependency order...")
 
     for resource_type in DROP_ORDER:
         logger.info("[CLEANUP] Processing %ss...", resource_type)
-
-        # Terminate queries before processing each resource type
-        logger.info(
-            "[CLEANUP] Terminating queries before processing %ss...", resource_type
-        )
-        terminate_all_queries(database, schema)
 
         # List resources of this type
         try:
@@ -868,7 +977,8 @@ def clean_database_with_children(
                     # For non-relation resources, use simple name
                     fully_qualified_name = resource_name
 
-                # Global resources that don't need database context
+                # Skip global resources if no fingerprint is provided; avoid deleting
+                # unrelated shared resources when caller is not scoping by timestamp.
                 global_resources = {
                     "STORE",
                     "SCHEMA_REGISTRY",
@@ -878,6 +988,12 @@ def clean_database_with_children(
                     "FUNCTION",
                     "FUNCTION_SOURCE",
                 }
+                if actual_type in global_resources and not fingerprint:
+                    logger.debug(
+                        "Skipping global resource %s because no fingerprint was provided",
+                        resource_name,
+                    )
+                    continue
 
                 # Determine database/schema context for dropping
                 db_context = None if actual_type in global_resources else database
@@ -913,13 +1029,15 @@ def clean_database_with_children(
     # Step 3: Drop all schemas (if requested)
     if drop_schemas:
         logger.info("[CLEANUP] Step 3: Dropping all schemas...")
+        # Check if database still exists before trying to list/drop schemas
         try:
             schemas = list_schemas(database)
+            logger.info("  Found %d schema(s) to process", len(schemas))
             # Filter out system schemas if needed (e.g., don't drop 'public' if it's protected)
             for schema_name in schemas:
                 # Skip system schemas that might be protected
                 if schema_name.lower() in PROTECTED_SCHEMAS:
-                    logger.debug("Skipping system schema: %s", schema_name)
+                    logger.debug("  Skipping system schema: %s", schema_name)
                     continue
 
                 logger.info("    Dropping schema: %s", schema_name)
@@ -937,178 +1055,54 @@ def clean_database_with_children(
                     results["errors"].append(error_msg)
                     logger.error("      ✗ %s", error_msg)
         except Exception as e:
-            logger.warning("    Warning: Could not drop schemas: %s", e)
+            error_msg = str(e).lower()
+            if "invalid database" in error_msg or "does not exist" in error_msg:
+                logger.info(
+                    "  ℹ Database %s no longer exists - schemas already cleaned up",
+                    database,
+                )
+                database_was_dropped = True
+            else:
+                logger.warning("  ⚠ Could not drop schemas: %s", e)
+                results["errors"].append(f"Schema cleanup error: {e}")
 
     # Step 4: Drop the database (if requested)
     if drop_database:
         logger.info("[CLEANUP] Step 4: Dropping database %s...", database)
-        success = drop_database_with_retry(
-            database,
-            max_wait_seconds=max_wait_seconds,
-            retry_interval_seconds=retry_interval_seconds,
-        )
 
-        if success:
-            logger.info("  Successfully dropped database %s", database)
-            results["dropped"].append(f"DATABASE:{database}")
+        if database_was_dropped:
+            logger.info(
+                "  ℹ Database %s was already dropped during cleanup - skipping",
+                database,
+            )
+            # Don't mark as error - it's already gone which is the desired state
         else:
-            error_msg = f"Failed to drop database {database}"
-            logger.error("  %s", error_msg)
-            results["errors"].append(error_msg)
+            success = drop_database_with_retry(
+                database,
+                max_wait_seconds=max_wait_seconds,
+                retry_interval_seconds=retry_interval_seconds,
+            )
+
+            if success:
+                logger.info("  ✓ Successfully dropped database %s", database)
+                results["dropped"].append(f"DATABASE:{database}")
+            else:
+                error_msg = f"Failed to drop database {database}"
+                logger.error("  ✗ %s", error_msg)
+                results["errors"].append(error_msg)
 
     # Print summary
     logger.info("=" * 80)
     logger.info("Cleanup Summary for database: %s", database)
     if fingerprint:
         logger.info("  Fingerprint: %s", fingerprint)
+    if database_was_dropped:
+        logger.info("  Status: Database was dropped during cleanup")
+    elif not database_exists:
+        logger.info("  Status: Database did not exist")
     logger.info("  Dropped: %d resources", len(results["dropped"]))
     logger.info("  Failed: %d resources", len(results["failed"]))
     logger.info("  Errors: %d errors", len(results["errors"]))
-    logger.info("=" * 80)
-
-    return results
-
-
-def cleanup_resources_by_fingerprint(
-    fingerprint: str,
-    database: str,
-    schema: str,
-    resource_list: Optional[List[Dict[str, Any]]] = None,
-    max_wait_seconds: int = DEFAULT_MAX_WAIT_SECONDS,
-) -> Dict[str, List[str]]:
-    """
-    Clean up resources that match a specific fingerprint using direct API.
-    This is useful for cleaning up all resources from a specific test run.
-    If resource_list is not provided, all resources will be discovered automatically.
-    Args:
-        fingerprint: Fingerprint to match (e.g., timestamp like "20251111_204119_691")
-                    Only resources containing this string will be dropped
-        database: Database containing the resources
-        schema: Schema containing the resources
-        resource_list: Optional list of resource dicts with 'name' and 'type' keys
-                      If None, resources will be discovered automatically
-        max_wait_seconds: Maximum time to wait for each resource
-    Returns:
-        Dictionary with cleanup results
-    """
-    results: Dict[str, List[str]] = {"dropped": [], "failed": [], "errors": []}
-
-    logger.info("=" * 80)
-    logger.info("Cleaning up resources with fingerprint: %s", fingerprint)
-    logger.info("  Database: %s", database)
-    logger.info("  Schema: %s", schema)
-    logger.info("=" * 80)
-
-    # Terminate queries first
-    terminate_all_queries(database, schema)
-
-    # If resource_list not provided, discover resources automatically
-    if resource_list is None:
-        logger.info("Discovering resources automatically...")
-        resources_by_type = {}
-        for resource_type in DROP_ORDER:
-            logger.info("  Discovering %ss...", resource_type)
-            resources = list_resources(resource_type, database, schema)
-            filtered = [
-                r
-                for r in resources
-                if fingerprint in (r.get("Name") or r.get("name") or "")
-            ]
-            if filtered:
-                resources_by_type[resource_type] = filtered
-                logger.info(
-                    "    Found %d %s(s) matching fingerprint",
-                    len(filtered),
-                    resource_type,
-                )
-    else:
-        # Group provided resources by type
-        resources_by_type = {}
-        for resource in resource_list:
-            rtype = resource.get("type", "RELATION")
-            name = resource.get("name", "")
-
-            # Filter by fingerprint
-            if fingerprint and fingerprint not in name:
-                continue
-
-            if rtype not in resources_by_type:
-                resources_by_type[rtype] = []
-            resources_by_type[rtype].append(resource)
-
-    # Drop resources in dependency order
-    for resource_type in DROP_ORDER:
-        if resource_type not in resources_by_type:
-            continue
-
-        logger.info("[CLEANUP] Dropping %ss...", resource_type)
-        for resource in resources_by_type[resource_type]:
-            resource_name = resource.get("Name") or resource.get("name")
-            if not resource_name:
-                continue
-
-            # Double-check fingerprint match
-            if fingerprint and fingerprint not in resource_name:
-                continue
-
-            # For RELATION type, use the actual Type from LIST RELATIONS
-            actual_type = resource_type
-            if resource_type == "RELATION":
-                actual_type = (
-                    resource.get("Type") or resource.get("type") or resource_type
-                )
-                actual_type = actual_type.upper()  # Ensure uppercase for SQL
-
-                # Get schema for fully qualified name
-                resource_schema = (
-                    resource.get("Schema") or resource.get("schema") or schema
-                )
-                # Construct fully qualified name: database.schema.relation
-                fully_qualified_name = f"{database}.{resource_schema}.{resource_name}"
-            else:
-                # For non-relation resources, use simple name
-                fully_qualified_name = resource_name
-
-            # Global resources that don't need database context
-            global_resources = {
-                "STORE",
-                "SCHEMA_REGISTRY",
-                "COMPUTE_POOL",
-                "DESCRIPTOR_SOURCE",
-                "ENTITY",
-                "FUNCTION",
-                "FUNCTION_SOURCE",
-            }
-
-            # Determine database/schema context for dropping
-            db_context = None if actual_type in global_resources else database
-            schema_context = None if actual_type in global_resources else schema
-
-            success = drop_relation_with_retry(
-                fully_qualified_name,
-                actual_type,
-                database=db_context,
-                schema=schema_context,
-                max_wait_seconds=max_wait_seconds,
-            )
-
-            if success:
-                results["dropped"].append(f"{actual_type}:{fully_qualified_name}")
-                logger.info("  ✓ Dropped %s: %s", actual_type, fully_qualified_name)
-            else:
-                results["failed"].append(f"{actual_type}:{fully_qualified_name}")
-                results["errors"].append(
-                    f"Failed to drop {actual_type}: {fully_qualified_name}"
-                )
-                logger.error(
-                    "  ✗ Failed to drop %s: %s", actual_type, fully_qualified_name
-                )
-
-    # Print summary
-    logger.info("=" * 80)
-    logger.info("Cleanup Summary (fingerprint: %s)", fingerprint)
-    logger.info("  Dropped: %d resources", len(results["dropped"]))
-    logger.info("  Failed: %d resources", len(results["failed"]))
     logger.info("=" * 80)
 
     return results
@@ -1299,3 +1293,35 @@ def run_async_safely(coro):
     except RuntimeError:
         # No running loop, safe to use asyncio.run()
         return asyncio.run(coro)
+
+
+def run_dbt_with_retry(
+    args: list[str],
+    expect_pass: bool = True,
+    retries: int = 1,
+    delay_seconds: int = 5,
+):
+    """
+    Run dbt with a limited retry to smooth transient backend readiness issues.
+
+    Args:
+        args: dbt CLI args (e.g., ["run"])
+        expect_pass: expected success flag
+        retries: number of retries on failure
+        delay_seconds: delay between retries
+    """
+    attempt = 0
+    while True:
+        try:
+            return _run_dbt(args, expect_pass=expect_pass)
+        except AssertionError as exc:
+            attempt += 1
+            if attempt > retries:
+                raise exc
+            logger.warning(
+                "dbt run failed (attempt %d/%d); retrying in %ds",
+                attempt,
+                retries,
+                delay_seconds,
+            )
+            time.sleep(delay_seconds)

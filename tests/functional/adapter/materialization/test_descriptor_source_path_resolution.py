@@ -10,7 +10,8 @@ Resources are automatically cleaned up by the session-level fixture in conftest.
 import pytest
 from datetime import datetime
 from pathlib import Path
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 
 
 class TestCreateDescriptorSourceDeltastream:
@@ -56,6 +57,6 @@ sources:
 
         # The descriptor source should be created successfully since test_schema.desc is now a valid protobuf descriptor file
         # The test verifies that the file path resolution works correctly
-        run_dbt(["run-operation", "create_sources"], expect_pass=True)
+        run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
 
         # Session-level cleanup will handle resource deletion

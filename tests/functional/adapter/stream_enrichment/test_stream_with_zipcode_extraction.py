@@ -7,7 +7,8 @@ Resources are automatically cleaned up by the session-level fixture in conftest.
 """
 
 import pytest
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 from tests.functional.adapter.test_helpers import generate_timestamp_suffix
 
 
@@ -78,7 +79,7 @@ sources:
 """.lstrip()
 
     write_file(sources_yml, project.project_root, "models", "sources.yml")
-    run_dbt(["run-operation", "create_sources"], expect_pass=True)
+    run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
 
     # Create enriched stream
     enriched_sql = f"""
@@ -140,4 +141,4 @@ FROM {{{{ ref('{enriched_stream}') }}}}
     write_file(zipcode_sql, project.project_root, "models", f"{zipcode_stream}.sql")
 
     # Run dbt to create both streams
-    run_dbt(["run"], expect_pass=True)
+    run_dbt_with_retry(["run"], expect_pass=True)

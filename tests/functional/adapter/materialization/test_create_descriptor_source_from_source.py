@@ -11,7 +11,8 @@ import pytest
 import shutil
 import os
 from datetime import datetime
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,7 @@ sources:
 
         # Run the operation to create sources
         try:
-            run_dbt(["run-operation", "create_sources"], expect_pass=True)
+            run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
         except Exception as e:
             logger.error("Failed to create descriptor source: %s", e)
             raise

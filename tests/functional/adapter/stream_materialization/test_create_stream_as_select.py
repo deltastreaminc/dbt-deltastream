@@ -9,7 +9,8 @@ Resources are automatically cleaned up by the session-level fixture in conftest.
 
 import pytest
 from datetime import datetime
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 
 
 @pytest.mark.integration
@@ -54,7 +55,7 @@ sources:
 """.lstrip()
 
     write_file(sources_yml, project.project_root, "models", "sources.yml")
-    run_dbt(["run-operation", "create_sources"], expect_pass=True)
+    run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
 
     # Now create a derived stream using CSAS
     model_sql = f"""
@@ -77,4 +78,4 @@ FROM {{{{ source('integration_tests', '{base_stream_name}') }}}}
     write_file(model_sql, project.project_root, "models", f"{derived_stream_name}.sql")
 
     # Run dbt to create the derived stream
-    run_dbt(["run"], expect_pass=True)
+    run_dbt_with_retry(["run"], expect_pass=True)

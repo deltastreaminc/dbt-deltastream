@@ -7,7 +7,8 @@ Resources are automatically cleaned up by the session-level fixture in conftest.
 """
 
 import pytest
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 from tests.functional.adapter.test_helpers import generate_timestamp_suffix
 
 
@@ -79,7 +80,7 @@ sources:
 """.lstrip()
 
     write_file(sources_yml, project.project_root, "models", "sources.yml")
-    run_dbt(["run-operation", "create_sources"], expect_pass=True)
+    run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
 
     # Create enriched stream by joining pageviews with users
     model_sql = f"""
@@ -109,4 +110,4 @@ JOIN {{{{ source('integration_tests', '{users_changelog}') }}}} u ON u.userid = 
     write_file(model_sql, project.project_root, "models", f"{enriched_stream}.sql")
 
     # Run dbt to create the enriched stream
-    run_dbt(["run"], expect_pass=True)
+    run_dbt_with_retry(["run"], expect_pass=True)
