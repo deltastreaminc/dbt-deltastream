@@ -6,7 +6,7 @@ This test verifies that the adapter can list, describe, terminate, and restart q
 
 import logging
 import pytest
-from dbt.tests.util import run_dbt
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ def test_terminate_all_queries_by_state(project):
 
     # Try to terminate all running queries
     try:
-        run_dbt(
+        run_dbt_with_retry(
             [
                 "run-operation",
                 "terminate_all_queries",
@@ -33,7 +33,7 @@ def test_terminate_all_queries_by_state(project):
 
     # Try to terminate all queries (no state filter)
     try:
-        run_dbt(
+        run_dbt_with_retry(
             [
                 "run-operation",
                 "terminate_all_queries",

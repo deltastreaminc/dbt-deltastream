@@ -7,8 +7,11 @@ Resources are automatically cleaned up by the session-level fixture in conftest.
 """
 
 import pytest
-from dbt.tests.util import run_dbt, write_file
-from tests.functional.adapter.test_helpers import generate_timestamp_suffix
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
+from tests.functional.adapter.test_helpers import (
+    generate_timestamp_suffix,
+)
 
 
 class TestHopWindowSizeAdvance:
@@ -57,7 +60,7 @@ sources:
 """.lstrip()
 
         write_file(sources_yml, project.project_root, "models", sources_file)
-        run_dbt(["run-operation", "create_sources"], expect_pass=True)
+        run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
 
         # Create materialized view with HOP window: 10 minute window, 2 minute advance
         model_sql = f"""
@@ -80,4 +83,4 @@ GROUP BY window_start, window_end, userid
         write_file(model_sql, project.project_root, "models", f"{mv_name}.sql")
 
         # Run dbt to create the materialized view
-        run_dbt(["run"], expect_pass=True)
+        run_dbt_with_retry(["run"], expect_pass=True, retries=1, delay_seconds=5)

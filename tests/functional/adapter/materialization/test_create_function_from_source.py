@@ -8,7 +8,8 @@ Functions in DeltaStream are user-defined functions written in Java.
 import pytest
 from datetime import datetime
 from pathlib import Path
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 
 
 class TestCreateFunctionDeltastream:
@@ -59,4 +60,4 @@ sources:
         write_file(sources_yml, project.project_root, "models", "sources.yml")
 
         # Create the function source and function
-        run_dbt(["run-operation", "create_sources"], expect_pass=True)
+        run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)

@@ -8,7 +8,8 @@ Functions in DeltaStream are user-defined functions written in Java.
 import logging
 import pytest
 from datetime import datetime
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +51,6 @@ sources:
 
     # This should fail after retries since the source doesn't exist
     try:
-        run_dbt(["run-operation", "create_sources"], expect_pass=False)
+        run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=False)
     except Exception as e:
         logger.info("Expected failure after retries: %s", e)

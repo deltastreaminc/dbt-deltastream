@@ -7,7 +7,8 @@ Resources are automatically cleaned up by the session-level fixture in conftest.
 
 import pytest
 from datetime import datetime
-from dbt.tests.util import run_dbt, write_file
+from dbt.tests.util import write_file
+from tests.functional.adapter.test_helpers import run_dbt_with_retry
 
 
 class TestCreateChangelogAsSelect:
@@ -54,7 +55,7 @@ sources:
 """.lstrip()
 
         write_file(sources_yml, project.project_root, "models", "sources.yml")
-        run_dbt(["run-operation", "create_sources"], expect_pass=True)
+        run_dbt_with_retry(["run-operation", "create_sources"], expect_pass=True)
 
         # Now create a derived changelog using CCAS
         model_sql = f"""
@@ -83,4 +84,4 @@ FROM {{{{ source('integration_tests', '{source_changelog_name}') }}}}
         )
 
         # Run dbt to create the derived changelog
-        run_dbt(["run"], expect_pass=True)
+        run_dbt_with_retry(["run"], expect_pass=True)

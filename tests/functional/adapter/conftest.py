@@ -19,7 +19,7 @@ def integration_database(integration_test_resources):
 
     This uses the database created at session start.
     """
-    db_name, _, _ = integration_test_resources
+    db_name, _, _, _ = integration_test_resources
     logger.debug("Returning integration_database: %s", db_name)
     yield db_name
 
@@ -31,7 +31,7 @@ def integration_schema(integration_test_resources):
 
     This uses the schema created at session start.
     """
-    _, schema_name, _ = integration_test_resources
+    _, schema_name, _, _ = integration_test_resources
     yield schema_name
 
 
@@ -42,7 +42,7 @@ def integration_store(integration_test_resources):
 
     This uses the store configured at session start.
     """
-    _, _, store_name = integration_test_resources
+    _, _, store_name, _ = integration_test_resources
     yield store_name
 
 
@@ -65,35 +65,36 @@ def integration_database_schema(integration_database, integration_schema):
 
 
 @pytest.fixture(scope="class")
-def integration_prefix():
+def integration_prefix(integration_test_resources, integration_run_id):
     """
     Provide the integration test prefix from environment variables.
 
     This prefix is used to namespace integration test resources and models.
 
     Yields:
-        str: The prefix string from DELTASTREAM_IT_PREFIX environment variable.
+        str: The prefix string from DELTASTREAM_IT_PREFIX environment variable
+             with the session run id appended to ensure xdist isolation.
     """
     import os
 
     prefix = os.getenv("DELTASTREAM_IT_PREFIX", "").strip()
-    yield prefix
+    if prefix:
+        yield f"{prefix}{integration_run_id}_"
+    else:
+        yield f"{integration_run_id}_"
 
 
 @pytest.fixture(scope="class")
-def integration_entity_names(integration_prefix):
+def integration_entity_names(integration_test_resources):
     """
-    Provide the integration test entity names with prefix applied.
+    Provide the integration test entity names with timestamps.
 
-    This uses the entity prefix from the integration_prefix fixture and applies it
-    to the base entity names (pageviews, users, shipments).
+    This returns the entity names that were created at session start,
+    including timestamps to ensure uniqueness across test runs.
 
     Yields:
-        dict[str, str]: A dictionary mapping base entity names to prefixed names.
+        dict[str, str]: A dictionary mapping base entity names to their full
+                        timestamped names (e.g., {"pageviews": "dbte2e_pageviews_20251209_230244_033"}).
     """
-    prefix = integration_prefix
-    base_entities = ["pageviews", "users", "shipments"]
-    entity_names = {
-        entity: f"{prefix}{entity}" if prefix else entity for entity in base_entities
-    }
+    _, _, _, entity_names = integration_test_resources
     yield entity_names
